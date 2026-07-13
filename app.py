@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 import os
 import io
-from PIL import Image
 
 # Secure ReportLab Component Imports
 try:
@@ -171,13 +170,11 @@ if excel_exists:
         
         for sheet in reference_sheets:
             if sheet in xls.sheet_names:
-                # Read static sheet content as reference bytes
                 ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
                 ref_buffer = io.BytesIO()
                 with pd.ExcelWriter(ref_buffer, engine='openpyxl') as writer:
                     ref_df.to_excel(writer, index=False, sheet_name=sheet)
                 
-                # Render file access buttons inside left sidebar panel
                 st.sidebar.download_button(
                     label=f"📄 Download: {sheet}",
                     data=ref_buffer.getvalue(),
@@ -191,14 +188,12 @@ else:
     st.sidebar.warning("Base master list file not detected.")
 
 # ==========================================
-# 4. MAIN PAGE HEADER LAYOUT WITH LOGO
+# 4. MAIN PAGE HEADER LAYOUT WITH DYNAMIC LOGO
 # ==========================================
-col_logo, col_title = st.columns([1, 4])
+col_logo, col_title = st.columns([1.2, 4])
 with col_logo:
-    try:
-        st.image(Image.open("indigo-park-canada-logo.jpg"), width=180)
-    except:
-        st.write("🅿️ **INDIGO PARK**")
+    # Direct live reference link to your official image hosting URL
+    st.image("https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg", use_container_width=True)
 with col_title:
     st.title(T["title"])
     st.caption(T["subtitle"])
@@ -212,10 +207,8 @@ st.markdown("---")
 def extract_real_cmo_data():
     if excel_exists:
         try:
-            # Safely target rows corresponding to the 2026 matrix sheets structure
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
-            # Dynamic sweep for column IDs beginning with CMO or VMO codes
             raw_codes = df.iloc[0].dropna().astype(str).str.strip().tolist()
             cmo_list = [x for x in raw_codes if x.upper().startswith(('CMO', 'VMO'))]
             if cmo_list:
@@ -240,7 +233,7 @@ with tab1:
     with col_yr:
         chosen_year = st.selectbox(T["select_year"], years_options, index=0)
     with col_mnth:
-        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Defaults to July
+        chosen_month = st.selectbox(T["select_month"], months_options, index=6)
 
     st.subheader(f"{T['form_header']} : {selected_cmo} — ({chosen_month} {chosen_year})")
     st.write(T["form_instruction"])
@@ -253,7 +246,6 @@ with tab1:
     for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
         st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
         
-        # Starts empty (None) forcing auditor choice entry engagement 
         responses[f"task_{idx}"] = st.radio(
             f"Statut {idx}", ["YES", "NO", "N/A"], index=None, key=f"task_radio_{idx}", label_visibility="collapsed"
         )
@@ -276,7 +268,6 @@ with tab1:
             
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    # Performance Scoring Calculation
     st.markdown("---")
     st.subheader(T["metrics_header"])
     
@@ -337,7 +328,6 @@ with tab1:
                 "Final_Score": [score_display],
                 "Capped_Flag": ["YES" if is_capped else "NO"]
             }
-            # Add complete question logs context directly into row columns structures
             for i in range(1, 15):
                 payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
                 payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
@@ -356,7 +346,7 @@ with tab1:
             st.button("Refresh / Actualiser")
 
 # ==========================================
-# TAB 2: AUDIT LOG MANAGEMENT & EXHAUSTIVE DOWNLOADS
+# TAB 2: AUDIT LOG MANAGEMENT
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -367,7 +357,6 @@ with tab2:
     else:
         history_df = pd.read_csv(save_path)
         
-        # Interactive Search Filters inside Content Area
         h_col1, h_col2, h_col3, h_col4 = st.columns(4)
         with h_col1:
             s_user = st.text_input(T["search_user"], value="", key="search_user_input")
@@ -378,7 +367,6 @@ with tab2:
         with h_col4:
             s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="search_year_select")
             
-        # Execute query filters live
         filtered_df = history_df.copy()
         if s_user.strip():
             filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
@@ -395,7 +383,6 @@ with tab2:
             display_columns = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
             st.dataframe(filtered_df[display_columns], use_container_width=True)
             
-            # --- MANAGE RECORD PURGING ENGINE ---
             st.markdown("### 🗑️ Record Management")
             selected_report_to_delete = st.selectbox("Select Report ID to Delete / Purge:", ["-- Select --"] + filtered_df["Report_ID"].tolist())
             
@@ -410,7 +397,6 @@ with tab2:
             dl_col1, dl_col2 = st.columns(2)
             
             with dl_col1:
-                # 📊 FULL COMPREHENSIVE EXCEL EXPORT ENGINE
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                     filtered_df.to_excel(writer, index=False, sheet_name='Comprehensive Data Log')
@@ -423,7 +409,6 @@ with tab2:
                 )
                 
             with dl_col2:
-                # 📄 EXHAUSTIVE PDF COMPILER (Includes Full Questions & Comments Context)
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                 styles = getSampleStyleSheet()
