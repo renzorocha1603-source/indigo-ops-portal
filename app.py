@@ -4,7 +4,7 @@ import datetime
 import os
 import io
 
-# Importation sécurisée de ReportLab pour les exports PDF avec Image
+# Importation sécurisée de ReportLab pour les exports PDF
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -32,9 +32,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Spécification du fichier maître local
 master_excel_file = 'Montreal Lot List.xlsx'
-excel_exists = os.path.isfile(master_excel_file)
 logo_url = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
 # ==========================================
@@ -46,7 +44,7 @@ LANG_DICT = {
         "subtitle": "Montreal Region Compliance Tracker & Reference Hub (2026)",
         "sidebar_lang": "🌐 Language / Langue",
         "sidebar_ref_title": "📚 Reference Documents",
-        "sidebar_ref_desc": "Expand to read on-screen or download operational standards sheets:",
+        "sidebar_ref_desc": "On-screen lookup of your operational master data tabs:",
         "tab_new": "📝 Fill City Reporting Matrix",
         "tab_history": "📜 View & Manage Historical Submissions",
         "select_cmo": "Select Target Lot ID (CMO):",
@@ -68,7 +66,7 @@ LANG_DICT = {
         "attest_label": "I verify that the answers provided above are accurate and true.",
         "submit_btn": "💾 Save & Sync Matrix to Database",
         "err_missing": "Submission Blocked: You must make a selection for every item, fill required comments, type your name, and check the attestation box.",
-        "success_log": "🎉 Matrix report securely synchronized by",
+        "success_log": "🎉 Success! Matrix report securely synchronized by",
         "no_history": "No submitted records found in the database yet.",
         "history_title": "🔎 Filter, Search & Manage Completed Matrices",
         "search_user": "Search by User Name:",
@@ -96,7 +94,7 @@ LANG_DICT = {
         "subtitle": "Suivi de conformité Région de Montréal & Centre de Références (2026)",
         "sidebar_lang": "🌐 Langue / Language",
         "sidebar_ref_title": "📚 Documents de Référence",
-        "sidebar_ref_desc": "Déroulez pour lire directement à l'écran ou téléchargez les guides officiels :",
+        "sidebar_ref_desc": "Consultation directe des onglets de référence de votre fichier maître :",
         "tab_new": "📝 Remplir la City Reporting Matrix",
         "tab_history": "📜 Consulter & Gérer l'Historique",
         "select_cmo": "Sélectionner l'emplacement cible (CMO) :",
@@ -118,7 +116,7 @@ LANG_DICT = {
         "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes et réelles.",
         "submit_btn": "💾 Valider et Enregistrer la Matrice",
         "err_missing": "Action Bloquée : Vous devez répondre à tout le formulaire, justifier les NO/NA, inscrire votre nom et cocher l'attestation.",
-        "success_log": "🎉 Matrice synchronisée avec succès ! Enregistrée par",
+        "success_log": "🎉 Succès ! Matrice synchronisée avec succès par",
         "no_history": "Aucun enregistrement de matrice trouvé dans la base pour le moment.",
         "history_title": "🔎 Filtrer, chercher et gérer les matrices enregistrées",
         "search_user": "Chercher par nom d'utilisateur :",
@@ -147,43 +145,28 @@ selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Fra
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. CHARGEMENT CORRECT ET AFFICHAGE DES RÉFÉRENCES
+# 3. CHARGEMENT ROBUSTE ET GARANTI DES RÉFÉRENCES
 # ==========================================
 st.sidebar.markdown("---")
 st.sidebar.subheader(T["sidebar_ref_title"])
 st.sidebar.caption(T["sidebar_ref_desc"])
 
-if excel_exists:
-    try:
-        # Ouverture sans cache pour forcer la lecture instantanée à l'écran
-        xls_ref = pd.ExcelFile(master_excel_file)
-        reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
-        
-        for sheet in reference_sheets:
-            if sheet in xls_ref.sheet_names:
-                ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
-                
-                with st.sidebar.expander(f"🔍 {sheet}", expanded=False):
-                    st.dataframe(ref_df, use_container_width=True)
-                
-                ref_buffer = io.BytesIO()
-                with pd.ExcelWriter(ref_buffer, engine='openpyxl') as writer:
-                    ref_df.to_excel(writer, index=False, sheet_name=sheet)
-                
-                st.sidebar.download_button(
-                    label=f"📥 Download {sheet}.xlsx",
-                    data=ref_buffer.getvalue(),
-                    file_name=f"Indigo_Ref_{sheet.replace(' ', '_')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"sidebar_dl_{sheet}"
-                )
-    except Exception as e:
-        st.sidebar.error(f"Erreur d'indexation : {e}")
+if os.path.exists(master_excel_file):
+    reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
+    for sheet in reference_sheets:
+        try:
+            # Lecture directe sans cache pour garantir l'affichage immédiat
+            ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
+            with st.sidebar.expander(f"📋 {sheet}", expanded=False):
+                st.dataframe(ref_df, use_container_width=True)
+        except Exception:
+            # Fallback si l'onglet exact a un problème d'encodage ou d'espace de nom
+            pass
 else:
-    st.sidebar.warning("Fichier 'Montreal Lot List.xlsx' introuvable.")
+    st.sidebar.info("💡 Placer 'Montreal Lot List.xlsx' à la racine pour afficher les onglets de référence.")
 
 # ==========================================
-# 4. EN-TÊTE PRINCIPAL DE LA PLATEFORME
+# 4. STRUCTURE DE LA PAGE PRINCIPALE
 # ==========================================
 col_logo, col_title = st.columns([1.2, 4])
 with col_logo:
@@ -194,10 +177,9 @@ with col_title:
 
 st.markdown("---")
 
-# Extraction des CMO cibles
-@st.cache_data
+# Extraction des codes CMO ou fallback sécurisé
 def load_cmo_codes():
-    if excel_exists:
+    if os.path.exists(master_excel_file):
         try:
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
@@ -216,7 +198,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1 : CAPTURE DU QUESTIONNAIRE ET LOGIQUE
+# TAB 1 : ACCUEIL ET ENREGISTREMENT SÉCURISÉ
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -235,27 +217,27 @@ with tab1:
     incomplete_selections_flag = False
     missing_comments_flag = False
     
-    for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
-        st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
-        responses[f"task_{idx}"] = st.radio(
-            f"Statut {idx}", ["YES", "NO", "N/A"], index=None, key=f"task_radio_{idx}", label_visibility="collapsed"
+    for i, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
+        st.markdown(f"**{i}. {T['tasks'][i-1]}**")
+        responses[f"task_{i}"] = st.radio(
+            f"Status Q{i}", ["YES", "NO", "N/A"], index=None, key=f"task_radio_{i}", label_visibility="collapsed"
         )
         
-        if responses[f"task_{idx}"] is None:
+        if responses[f"task_{i}"] is None:
             incomplete_selections_flag = True
-            task_comments[f"comment_{idx}"] = ""
-        elif responses[f"task_{idx}"] in ["NO", "N/A"]:
+            task_comments[f"comment_{i}"] = ""
+        elif responses[f"task_{i}"] in ["NO", "N/A"]:
             st.markdown(f"<div class='reason-box'>", unsafe_allow_html=True)
-            task_comments[f"comment_{idx}"] = st.text_input(
-                f"Justification / Reason ({responses[f'task_{idx}']}) *",
-                key=f"comment_input_{idx}",
+            task_comments[f"comment_{i}"] = st.text_input(
+                f"Justification ({responses[f'task_{i}']}) *",
+                key=f"comment_input_{i}",
                 placeholder=T["comment_placeholder"]
             )
             st.markdown("</div>", unsafe_allow_html=True)
-            if not task_comments[f"comment_{idx}"].strip():
+            if not task_comments[f"comment_{i}"].strip():
                 missing_comments_flag = True
         else:
-            task_comments[f"comment_{idx}"] = ""
+            task_comments[f"comment_{i}"] = ""
 
     st.markdown("---")
     st.subheader(T["metrics_header"])
@@ -266,10 +248,10 @@ with tab1:
     na_count = answers.count("N/A")
     
     if not incomplete_selections_flag:
-        applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
+        applicable_count = 9 - na_count
         base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
         
-        # Capping Strict à 85% maximum si l'indicateur critique 2 (Réunion Client) n'est pas complété
+        # Règle Indigo : Plafonnement strict à 85% maximum si la question 2 (Réunion Client) est manquante
         is_capped = False
         if responses["task_2"] == "NO" and base_score > 85.0:
             base_score = 85.0
@@ -277,11 +259,9 @@ with tab1:
         score_display = f"{base_score:.1f}%"
         status_display = T["m_complete"]
     else:
-        base_score = 0.0
         is_capped = False
         score_display = "--"
         status_display = T["m_incomplete"]
-        applicable_count = 0
         
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
@@ -332,8 +312,9 @@ with tab1:
             else:
                 new_row_df.to_csv(save_path, mode='a', header=False, index=False)
                 
-            st.success(f"{T['success_log']} : {typed_signature} !")
-            st.rerun()
+            # Message persistant de succès pour empêcher la disparition instantanée
+            st.success(f"{T['success_log']} : **{typed_signature}** ! ID: {unique_report_id}")
+            st.balloons()
 
 # ==========================================
 # TAB 2 : HISTORIQUE, EXPORT LOGO PDF ET EXCEL VERTICAL
@@ -349,13 +330,13 @@ with tab2:
         
         h_col1, h_col2, h_col3, h_col4 = st.columns(4)
         with h_col1:
-            s_user = st.text_input(T["search_user"], value="")
+            s_user = st.text_input(T["search_user"], value="", key="sh_user")
         with h_col2:
-            s_cmo = st.text_input(T["search_cmo"], value="")
+            s_cmo = st.text_input(T["search_cmo"], value="", key="sh_cmo")
         with h_col3:
-            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options)
+            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options, key="sh_month")
         with h_col4:
-            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options])
+            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="sh_year")
             
         filtered_df = history_df.copy()
         if s_user.strip():
@@ -368,39 +349,29 @@ with tab2:
             filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
             
         if filtered_df.empty:
-            st.warning("Aucun résultat.")
+            st.warning("Aucun enregistrement ne correspond.")
         else:
             display_cols = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
             st.dataframe(filtered_df[display_cols], use_container_width=True)
             
-            st.markdown("### 🗑️ Purge Administrative")
-            selected_report_to_delete = st.selectbox("Sélectionner un rapport :", ["-- Sélectionner --"] + filtered_df["Report_ID"].tolist())
-            if st.button("❌ Supprimer définitivement"):
-                if selected_report_to_delete != "-- Sélectionner --":
-                    updated_master_df = history_df[history_df["Report_ID"] != selected_report_to_delete]
-                    updated_master_df.to_csv(save_path, index=False)
-                    st.success(T["delete_confirm"])
-                    st.rerun()
-
             st.markdown("---")
             dl_col1, dl_col2 = st.columns(2)
             
-            # --- EXPORT EXCEL OPTIMISÉ : DE HAUT EN BAS (VERTICAL) ---
+            # --- EXPORT EXCEL : DE HAUT EN BAS (VERTICAL) ---
             with dl_col1:
-                # Transposition pour lecture de haut en bas
                 vertical_df = filtered_df.set_index("Report_ID").transpose()
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    vertical_df.to_excel(writer, sheet_name='Vertical Audit Log')
+                    vertical_df.to_excel(writer, sheet_name='Audit Log')
                 
                 st.download_button(
                     label=T["dl_excel"],
                     data=excel_buffer.getvalue(),
-                    file_name=f"Indigo_Vertical_Matrix_Report.xlsx",
+                    file_name=f"Indigo_Vertical_Matrix_Log.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-            # --- EXPORT PDF AVEC LOGO INDIGO INTÉGRÉ ---
+            # --- EXPORT PDF : INTÉGRATION COMPLÈTE DU LOGO ---
             with dl_col2:
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -410,21 +381,17 @@ with tab2:
                 style_header = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.whitesmoke)
                 
                 story = []
-                
-                # Ajout sécurisé du logo Indigo en haut du PDF
                 try:
                     story.append(Image(logo_url, width=120, height=45))
                     story.append(Spacer(1, 10))
-                except Exception:
-                    pass  # Évite le blocage si l'URL externe est temporairement inaccessible
+                except:
+                    pass
                 
                 story.append(Paragraph(f"<b>INDIGO PARK CANADA — CITY REPORTING COMPREHENSIVE LOG</b>", styles['Heading2']))
-                story.append(Paragraph(f"Exported on: {datetime.date.today().strftime('%Y-%m-%d')} | Records found: {len(filtered_df)}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
                 for idx, row in filtered_df.iterrows():
                     story.append(Paragraph(f"<b>Matrix Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
-                    story.append(Paragraph(f"Logged By: {row['User']} | Date: {row['Timestamp']} | ID: {row['Report_ID']}", styles['Normal']))
                     story.append(Spacer(1, 5))
                     
                     pdf_table_data = [[Paragraph("No.", style_header), Paragraph("City Reporting Matrix Target Indicator", style_header), Paragraph("Status", style_header), Paragraph("Justification / Context Comment", style_header)]]
@@ -444,20 +411,16 @@ with tab2:
                     row_table = Table(pdf_table_data, colWidths=[25, 275, 50, 200])
                     row_table.setStyle(TableStyle([
                         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2D144B')),
-                        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
                         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-                        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#FCFCFC')),
                         ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
                     ]))
                     story.append(row_table)
-                    story.append(Spacer(1, 20))
+                    story.append(Spacer(1, 15))
                 
                 doc.build(story)
-                
                 st.download_button(
                     label=T["dl_pdf"],
                     data=pdf_buffer.getvalue(),
-                    file_name=f"Indigo_Compliance_Report_With_Logo.pdf",
+                    file_name=f"Indigo_Compliance_Report.pdf",
                     mime="application/pdf"
                 )
