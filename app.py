@@ -12,7 +12,6 @@ try:
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
 except ImportError:
-    # Safe auto-install wrapper if dependencies are missing in workspace
     os.system('pip install reportlab')
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -62,9 +61,9 @@ LANG_DICT = {
         "m_score": "Operational Performance Score",
         "m_capped": "Penalized Max Capping (No Client Meeting)",
         "m_passed": "Validated Tasks (YES)",
-        "sign_header": "🖋️ Digital Signature & Verification",
+        "sign_header": "🖋 Roy Digital Signature & Verification",
         "sign_label": "Type your Full Name to sign electronically:",
-        "attest_label": "I officially attest that these metrics represent true site audits matching real field conditions.",
+        "attest_label": "I verify that the answers provided above are accurate and true.",
         "submit_btn": "💾 Save & Sync Report to Database",
         "err_missing": "Submission Blocked: You must enter your name, check the attestation box, and fill out all conditional comments.",
         "success_log": "🎉 Report securely saved to history and signed by",
@@ -115,7 +114,7 @@ LANG_DICT = {
         "m_passed": "Tâches Validées (YES)",
         "sign_header": "🖋️ Signature et Validation Légale",
         "sign_label": "Saisissez votre Nom et Prénom complet pour la signature électronique :",
-        "attest_label": "J'atteste sur l'honneur avoir complété cette évaluation conformément aux réalités observées sur le terrain.",
+        "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes.",
         "submit_btn": "💾 Valider et Enregistrer dans la Base Historique",
         "err_missing": "Action Bloquée : Vous devez saisir votre signature nominative, cocher l'attestation, et remplir tous les commentaires obligatoires.",
         "success_log": "🎉 Rapport synchronisé avec succès ! Enregistré de manière sécurisée par",
@@ -159,11 +158,12 @@ filter_year = st.sidebar.selectbox(T["year_filter"], years_options)
 filter_month = st.sidebar.selectbox(T["month_filter"], months_options)
 
 # ==========================================
-# 4. HEADER LAYOUT WITH CORPORATE LOGO
+# 4. HEADER LAYOUT WITH FIXED CORPORATE LOGO
 # ==========================================
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     try:
+        # Fixed to read your specific filename layout asset
         st.image(Image.open("indigo-park-canada-logo.jpg"), width=180)
     except:
         st.write("🅿️ **INDIGO PARK**")
@@ -199,11 +199,9 @@ with tab1:
     with col_cmo:
         selected_cmo = st.selectbox(T["select_cmo"], cmo_options)
     with col_yr:
-        # Dynamic Custom Override Selector for Year
         chosen_year = st.selectbox(T["select_year"], years_options, index=0)
     with col_mnth:
-        # Dynamic Custom Override Selector for Month
-        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Defaults dynamically to July
+        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Defaults to July
 
     st.subheader(f"{T['form_header']} : {selected_cmo} — ({chosen_month} {chosen_year})")
     st.write(T["form_instruction"])
@@ -261,7 +259,7 @@ with tab1:
     with col_m3:
         st.metric(label=T["m_passed"], value=f"{yes_count} / {applicable_count}")
 
-    # E-Signature confirmation block
+    # E-Signature confirmation block with simplified attestation phrasing
     st.markdown("---")
     st.subheader(T["sign_header"])
     typed_signature = st.text_input(T["sign_label"])
@@ -310,7 +308,6 @@ with tab2:
     else:
         history_df = pd.read_csv(save_path)
         
-        # Filter metrics evaluation tables reactively from user's selection
         if filter_user.strip() != "":
             history_df = history_df[history_df['User'].str.contains(filter_user, case=False, na=False)]
         history_df = history_df[(history_df['Year'] == filter_year) & (history_df['Month'] == filter_month)]
@@ -320,11 +317,9 @@ with tab2:
         else:
             st.dataframe(history_df, use_container_width=True)
             
-            # --- FILE DOWNLOADING COMPILATION PORTS ---
             col_dl1, col_dl2 = st.columns(2)
             
             with col_dl1:
-                # 📊 GENERATE EXCEL BUFFER FILE
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                     history_df.to_excel(writer, index=False, sheet_name='Ops Compliance Data')
@@ -337,18 +332,15 @@ with tab2:
                 )
                 
             with col_dl2:
-                # 📄 GENERATE PROGRAMMATIC REPORTLAB EXECUTIVE PDF
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
                 styles = getSampleStyleSheet()
                 
                 story = []
-                # Header elements
                 story.append(Paragraph(f"<b>INDIGO PARK CANADA — REGIONAL AUDIT REPORT</b>", styles['Heading1']))
                 story.append(Paragraph(f"Generated On: {datetime.date.today().strftime('%Y-%m-%d')} | Selection: {filter_month} {filter_year}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
-                # Render audit matrix summary lists table
                 table_data = [["CMO ID", "Auditor User", "Performance Score", "Face-Time Capped?"]]
                 for _, row in history_df.iterrows():
                     table_data.append([str(row['CMO_ID']), str(row['User']), str(row['Final_Score']), str(row['Capped_Flag'])])
