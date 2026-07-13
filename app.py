@@ -32,17 +32,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Résolution dynamique et robuste du chemin du fichier Excel
-if os.path.exists('/home/bard/Montreal Lot List.xlsx'):
-    master_excel_file = '/home/bard/Montreal Lot List.xlsx'
-elif os.path.exists('Montreal Lot List.xlsx'):
-    master_excel_file = os.path.abspath('Montreal Lot List.xlsx')
-else:
-    master_excel_file = 'Montreal Lot List.xlsx'
+# Résolution des chemins potentiels
+possible_paths = [
+    '/home/bard/Montreal Lot List.xlsx',
+    'Montreal Lot List.xlsx',
+    os.path.abspath('Montreal Lot List.xlsx')
+]
+master_excel_file = None
+for p in possible_paths:
+    if os.path.exists(p):
+        master_excel_file = p
+        break
 
 logo_url = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
-# Initialisation de l'état pour les messages de succès persistants
 if "success_message" not in st.session_state:
     st.session_state.success_message = None
 
@@ -156,23 +159,47 @@ selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Fra
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. CHARGEMENT AUTOMATIQUE DES RÉFÉRENCES
+# 3. SYSTÈME DE RÉFÉRENCE DOUBLE (EXCEL / INTÉGRÉ)
 # ==========================================
 st.sidebar.markdown("---")
 st.sidebar.subheader(T["sidebar_ref_title"])
 st.sidebar.caption(T["sidebar_ref_desc"])
 
-if os.path.exists(master_excel_file):
-    reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
-    for sheet in reference_sheets:
+# Données de secours intégrées au cas où le fichier Excel est introuvable ou illisible
+FALLBACK_DATA = {
+    'Gestion des activités': pd.DataFrame({
+        "Tâche [Level 1 System]": ["Mettre à jour la matrice de rapports municipaux", "Examiner la matrice de rapports municipaux", "Compléter la liste des lotissements", "Effectuer les tâches terrain"],
+        "Responsabilité": ["RR (Responsable Régional)", "DG (Directeur Général)", "DG", "RR et Superviseur"],
+        "Fréquence / Quand": ["Mensuelle", "Révision le 21 du mois, finale le 1er du mois suivant", "Révision mensuelle", "Mensuelle"]
+    }),
+    'Aperçu des normes': pd.DataFrame({
+        "Excellence de la performance (Quoi)": ["1. Personnalisation & Customisation", "2. Réunions Clients / Comptes rendus", "3. Signalisation & Image de marque", "10. Professionnalisme Niveau 1"],
+        "Résultats attendus (Comment)": ["Prendre des notes détaillées sur chaque appel/réunion, carnets premium distincts", "Le DG doit assister au moins une fois par trimestre aux réunions mensuelles", "Niveaux de livraison les plus élevés, vérifier et remplacer régulièrement", "S'assurer que l'équipe premium est parfaitement formée à l'étiquette de haut niveau"],
+        "Responsabilité (Qui)": ["Opérations juniors / Superviseur", "Directeur Général", "Responsable Opérationnel / DG", "Directeur Général / Tous"]
+    }),
+    'Matrice des meilleures pratique': pd.DataFrame({
+        "Indicateurs Opérationnels": ["Rapport opérationnel complet du site", "CRITICAL: Réunion/appel mensuel programmé", "Audit mensuel SMILE", "Propositions à valeur ajoutée (Revenus/Économies)"],
+        "Niveau Minimum Requis": ["Niveau 1, 2 et 3 - Mensuel", "Niveau 1 - Obligatoire (Plafonnement si absent)", "Niveau 1, 2 - Mensuel", "Niveau 1 - Mensuel / Trimestriel"]
+    })
+}
+
+reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
+
+for sheet in reference_sheets:
+    loaded = False
+    if master_excel_file:
         try:
             ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
             with st.sidebar.expander(f"📋 {sheet}", expanded=False):
                 st.dataframe(ref_df, use_container_width=True)
-        except Exception as e:
-            st.sidebar.error(f"Erreur d'affichage '{sheet}': {str(e)}")
-else:
-    st.sidebar.error("Fichier maître 'Montreal Lot List.xlsx' introuvable au chemin configuré.")
+            loaded = True
+        except:
+            pass
+    
+    # Si la lecture échoue, chargement instantané de la base de secours intégrée
+    if not loaded:
+        with st.sidebar.expander(f"📋 {sheet} (Backup Mode)", expanded=False):
+            st.dataframe(FALLBACK_DATA[sheet], use_container_width=True)
 
 # ==========================================
 # 4. STRUCTURE DE LA PAGE PRINCIPALE
@@ -186,9 +213,8 @@ with col_title:
 
 st.markdown("---")
 
-# Extraction des codes CMO
 def load_cmo_codes():
-    if os.path.exists(master_excel_file):
+    if master_excel_file:
         try:
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
@@ -207,7 +233,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1 : FORMULAIRE ET ENREGISTREMENT SÉCURISÉ
+# TAB 1 : ENREGISTREMENT & MESSAGES SÉCURISÉS
 # ==========================================
 with tab1:
     if st.session_state.success_message:
@@ -329,7 +355,7 @@ with tab1:
             st.rerun()
 
 # ==========================================
-# TAB 2 : HISTORIQUE ET EXPORTS (PDF/EXCEL)
+# TAB 2 : HISTORIQUE ET EXPORTS (EXCEL VERTICAL & PDF)
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -369,7 +395,7 @@ with tab2:
             st.markdown("---")
             dl_col1, dl_col2 = st.columns(2)
             
-            # EXPORT EXCEL : VERTICAL (De haut en bas)
+            # Export Excel Transposé verticalement
             with dl_col1:
                 vertical_df = filtered_df.set_index("Report_ID").transpose()
                 excel_buffer = io.BytesIO()
@@ -383,7 +409,7 @@ with tab2:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-            # EXPORT PDF : INTÉGRATION LOGO ET LOG COMPLET
+            # Export PDF complet avec Logo Indigo
             with dl_col2:
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
