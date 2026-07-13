@@ -32,8 +32,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Utilisation du chemin absolu validé pour éliminer tout problème de détection
-master_excel_file = '/home/bard/Montreal Lot List.xlsx'
+# Résolution dynamique et robuste du chemin du fichier Excel
+if os.path.exists('/home/bard/Montreal Lot List.xlsx'):
+    master_excel_file = '/home/bard/Montreal Lot List.xlsx'
+elif os.path.exists('Montreal Lot List.xlsx'):
+    master_excel_file = os.path.abspath('Montreal Lot List.xlsx')
+else:
+    master_excel_file = 'Montreal Lot List.xlsx'
+
 logo_url = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
 # Initialisation de l'état pour les messages de succès persistants
@@ -150,7 +156,7 @@ selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Fra
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. CHARGEMENT SÉCURISÉ ET VISUEL DES ONGLETS
+# 3. CHARGEMENT AUTOMATIQUE DES RÉFÉRENCES
 # ==========================================
 st.sidebar.markdown("---")
 st.sidebar.subheader(T["sidebar_ref_title"])
@@ -160,7 +166,6 @@ if os.path.exists(master_excel_file):
     reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
     for sheet in reference_sheets:
         try:
-            # Forçage du moteur openpyxl pour une lecture stable
             ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
             with st.sidebar.expander(f"📋 {sheet}", expanded=False):
                 st.dataframe(ref_df, use_container_width=True)
@@ -181,7 +186,7 @@ with col_title:
 
 st.markdown("---")
 
-# Extraction dynamique des codes CMO
+# Extraction des codes CMO
 def load_cmo_codes():
     if os.path.exists(master_excel_file):
         try:
@@ -202,14 +207,12 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1 : FORMULAIRE DE SAISIE ET ENREGISTREMENT
+# TAB 1 : FORMULAIRE ET ENREGISTREMENT SÉCURISÉ
 # ==========================================
 with tab1:
-    # Zone d'affichage du message persistant de succès (évite les disparitions au rechargement)
     if st.session_state.success_message:
         st.success(st.session_state.success_message)
         st.balloons()
-        # Réinitialisation après affichage unique
         st.session_state.success_message = None
 
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -262,7 +265,6 @@ with tab1:
         applicable_count = 9 - na_count
         base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
         
-        # Plafonnement Indigo strict si Réunion Client manquante (Task 2)
         is_capped = False
         if responses["task_2"] == "NO" and base_score > 85.0:
             base_score = 85.0
@@ -323,12 +325,11 @@ with tab1:
             else:
                 new_row_df.to_csv(save_path, mode='a', header=False, index=False)
                 
-            # Assignation de la notification persistante
-            st.session_state.success_message = f"{T['success_log']} : **{typed_signature}** ! ID de suivi : {unique_report_id}"
+            st.session_state.success_message = f"{T['success_log']} : **{typed_signature}** ! ID: {unique_report_id}"
             st.rerun()
 
 # ==========================================
-# TAB 2 : GESTION HISTORIQUE ET EXPORTS (EXCEL VERTICAL & PDF LOGO)
+# TAB 2 : HISTORIQUE ET EXPORTS (PDF/EXCEL)
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -368,12 +369,12 @@ with tab2:
             st.markdown("---")
             dl_col1, dl_col2 = st.columns(2)
             
-            # --- EXPORT EXCEL : DE HAUT EN BAS (VERTICAL) ---
+            # EXPORT EXCEL : VERTICAL (De haut en bas)
             with dl_col1:
                 vertical_df = filtered_df.set_index("Report_ID").transpose()
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    vertical_df.to_excel(writer, sheet_name='Audit Log Logit')
+                    vertical_df.to_excel(writer, sheet_name='Audit Log')
                 
                 st.download_button(
                     label=T["dl_excel"],
@@ -382,7 +383,7 @@ with tab2:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-            # --- EXPORT PDF : INTÉGRATION COMPLÈTE DU LOGO ---
+            # EXPORT PDF : INTÉGRATION LOGO ET LOG COMPLET
             with dl_col2:
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
