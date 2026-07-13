@@ -5,7 +5,7 @@ import os
 import io
 from PIL import Image
 
-# Secure ReportLab Component Imports for Deep Custom Layouts
+# Secure ReportLab Component Imports
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -21,7 +21,7 @@ except ImportError:
 # ==========================================
 # 1. PAGE CONFIGURATION & BRAND STYLING
 # ==========================================
-st.set_page_config(page_title="Indigo Park Ops Portal", layout="wide", page_icon="🅿️")
+st.set_page_config(page_title="Indigo Park City Matrix Portal", layout="wide", page_icon="🅿️")
 
 st.markdown("""
     <style>
@@ -33,21 +33,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# File Validation Guard
+master_excel_file = 'Montreal Lot List.xlsx'
+excel_exists = os.path.isfile(master_excel_file)
+
 # ==========================================
 # 2. BILINGUAL TRANSLATION DICTIONARY
 # ==========================================
 LANG_DICT = {
     "English": {
-        "title": "Operations & Compliance Portal",
-        "subtitle": "Montreal Region Lot Management & Best Practices Digital Tracker",
-        "sidebar_lang": "🌐 Select Language / Choisir la langue",
-        "tab_new": "📝 File New Report",
-        "tab_history": "📜 View & Search History",
+        "title": "City Reporting Matrix Portal",
+        "subtitle": "Montreal Region Compliance Tracker & Reference Hub",
+        "sidebar_lang": "🌐 Language / Langue",
+        "sidebar_ref_title": "📚 Reference Documents",
+        "sidebar_ref_desc": "Download structural references for operational standards:",
+        "tab_new": "📝 Fill City Reporting Matrix",
+        "tab_history": "📜 View & Manage Historical Submissions",
         "select_cmo": "Select Target Lot ID (CMO):",
-        "select_year": "Select Report Target Year:",
-        "select_month": "Select Report Target Month:",
-        "form_header": "Monthly Validation Form",
-        "form_instruction": "Please choose a status for all 14 mandatory compliance items below:",
+        "select_year": "Select Target Matrix Year:",
+        "select_month": "Select Target Matrix Month:",
+        "form_header": "City Reporting Matrix Log",
+        "form_instruction": "Please choose a status for all 14 mandatory operational indicator items:",
         "comment_placeholder": "Provide specific justification details for this indicator...",
         "comment_warning": "⚠️ Please select a choice for all 14 indicators and fill out context comments for items marked NO or N/A.",
         "metrics_header": "📊 Performance Metrics Results",
@@ -60,11 +66,11 @@ LANG_DICT = {
         "sign_header": "🖋️ Digital Signature & Verification",
         "sign_label": "Type your Full Name to sign electronically:",
         "attest_label": "I verify that the answers provided above are accurate and true.",
-        "submit_btn": "💾 Save & Sync Report to Database",
+        "submit_btn": "💾 Save & Sync Matrix to Database",
         "err_missing": "Submission Blocked: You must make a selection for every item, fill required comments, type your name, and check the attestation box.",
-        "success_log": "🎉 Report securely saved to history and signed by",
-        "no_history": "No records found in the database yet.",
-        "history_title": "🔎 Filter, Search & Manage Historical Audits",
+        "success_log": "🎉 Matrix report securely synchronized by",
+        "no_history": "No submitted records found in the database yet.",
+        "history_title": "🔎 Filter, Search & Manage Completed Matrices",
         "search_user": "Search by User Name:",
         "search_cmo": "Search by Lot ID (CMO):",
         "search_month": "Search by Month:",
@@ -72,7 +78,7 @@ LANG_DICT = {
         "all": "All",
         "dl_excel": "📥 Download FULL Comprehensive Report (Excel)",
         "dl_pdf": "📥 Download FULL Comprehensive Report (PDF)",
-        "delete_confirm": "Deleted report entry successfully.",
+        "delete_confirm": "Report deleted successfully from history.",
         "tasks": [
             "Complete operational site report",
             "Site visit by site manager/supervisor - internal",
@@ -91,15 +97,17 @@ LANG_DICT = {
         ]
     },
     "Français": {
-        "title": "Portail d'Opérations & Conformité",
-        "subtitle": "Suivi numérique des lotissements et meilleures pratiques - Région de Montréal",
-        "sidebar_lang": "🌐 Choisir la langue / Select Language",
-        "tab_new": "📝 Remplir un nouveau rapport",
-        "tab_history": "📜 Consulter et chercher l'historique",
+        "title": "Portail City Reporting Matrix",
+        "subtitle": "Suivi de conformité Région de Montréal & Centre de Références",
+        "sidebar_lang": "🌐 Langue / Language",
+        "sidebar_ref_title": "📚 Documents de Référence",
+        "sidebar_ref_desc": "Téléchargez les guides et normes d'opérations officiels :",
+        "tab_new": "📝 Remplir la City Reporting Matrix",
+        "tab_history": "📜 Consulter & Gérer l'Historique",
         "select_cmo": "Sélectionner l'emplacement cible (CMO) :",
-        "select_year": "Sélectionner l'année cible du rapport :",
-        "select_month": "Sélectionner le mois cible du rapport :",
-        "form_header": "Formulaire de validation mensuelle",
+        "select_year": "Sélectionner l'année cible de la matrice :",
+        "select_month": "Sélectionner le mois cible de la matrice :",
+        "form_header": "Saisie de la City Reporting Matrix",
         "form_instruction": "Veuillez sélectionner un statut pour chacun des 14 indicateurs obligatoires :",
         "comment_placeholder": "Fournir les détails de justification pour cet indicateur...",
         "comment_warning": "⚠️ Veuillez répondre à toutes les questions et remplir les justifications obligatoires pour les choix 'NO' ou 'N/A'.",
@@ -113,11 +121,11 @@ LANG_DICT = {
         "sign_header": "🖋️ Signature et Validation Légale",
         "sign_label": "Saisissez votre Nom et Prénom complet pour la signature électronique :",
         "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes.",
-        "submit_btn": "💾 Valider et Enregistrer dans la Base Historique",
+        "submit_btn": "💾 Valider et Enregistrer la Matrice",
         "err_missing": "Action Bloquée : Vous devez répondre à tout le formulaire, justifier les NO/NA, inscrire votre nom et cocher l'attestation.",
-        "success_log": "🎉 Rapport synchronisé avec succès ! Enregistré de manière sécurisée par",
-        "no_history": "Aucun enregistrement trouvé dans la base de données pour le moment.",
-        "history_title": "🔎 Filtrer, chercher et gérer l'historique des audits",
+        "success_log": "🎉 Matrice synchronisée avec succès ! Enregistrée par",
+        "no_history": "Aucun enregistrement de matrice trouvé dans la base pour le moment.",
+        "history_title": "🔎 Filtrer, chercher et gérer les matrices enregistrées",
         "search_user": "Chercher par nom d'utilisateur :",
         "search_cmo": "Chercher par No de Lot (CMO) :",
         "search_month": "Chercher par Mois :",
@@ -125,7 +133,7 @@ LANG_DICT = {
         "all": "Tous",
         "dl_excel": "📥 Télécharger le rapport COMPLET (Excel)",
         "dl_pdf": "📥 Télécharger le rapport COMPLET (PDF)",
-        "delete_confirm": "Rapport supprimé avec succès de la base.",
+        "delete_confirm": "Matrice supprimée avec succès de l'historique.",
         "tasks": [
             "Rapport opérationnel complet du site",
             "Visite du site par le responsable/superviseur du site - interne",
@@ -145,12 +153,45 @@ LANG_DICT = {
     }
 }
 
-# Language Selector
+# Language Configuration Toggle (Sidebar)
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. HEADER DESIGN WITH LOGO
+# 3. SIDEBAR: STATIC REFERENCES FILES
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.subheader(T["sidebar_ref_title"])
+st.sidebar.caption(T["sidebar_ref_desc"])
+
+if excel_exists:
+    try:
+        xls = pd.ExcelFile(master_excel_file)
+        reference_sheets = ['Gestion des activités', 'Aperçu des normes', 'Matrice des meilleures pratique']
+        
+        for sheet in reference_sheets:
+            if sheet in xls.sheet_names:
+                # Read static sheet content as reference bytes
+                ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
+                ref_buffer = io.BytesIO()
+                with pd.ExcelWriter(ref_buffer, engine='openpyxl') as writer:
+                    ref_df.to_excel(writer, index=False, sheet_name=sheet)
+                
+                # Render file access buttons inside left sidebar panel
+                st.sidebar.download_button(
+                    label=f"📄 Download: {sheet}",
+                    data=ref_buffer.getvalue(),
+                    file_name=f"Indigo_Reference_{sheet.replace(' ', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"sidebar_dl_{sheet}"
+                )
+    except Exception as e:
+        st.sidebar.error("Could not parse sidebar sheets.")
+else:
+    st.sidebar.warning("Base master list file not detected.")
+
+# ==========================================
+# 4. MAIN PAGE HEADER LAYOUT WITH LOGO
 # ==========================================
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
@@ -165,18 +206,23 @@ with col_title:
 st.markdown("---")
 
 # ==========================================
-# 4. EXCEL CMO RETRIEVAL ENGINE
+# 5. DYNAMIC TARGET LOT (CMO) RETRIEVAL
 # ==========================================
 @st.cache_data
 def extract_real_cmo_data():
-    try:
-        df = pd.read_excel('Montreal Lot List.xlsx', sheet_name='Montreal', skiprows=1)
-        df.columns = df.columns.str.strip()
-        cmo_list = df['Lot #'].dropna().astype(str).str.strip().unique().tolist()
-        cmo_list = [x for x in cmo_list if x.startswith(('CMO', 'VMO'))]
-        return sorted(cmo_list)
-    except:
-        return [f"CMO{str(i).zfill(3)}" for i in [2, 4, 8, 9, 10, 15, 20, 25, 37, 101, 102]]
+    if excel_exists:
+        try:
+            # Safely target rows corresponding to the 2026 matrix sheets structure
+            df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
+            df.columns = df.columns.str.strip()
+            # Dynamic sweep for column IDs beginning with CMO or VMO codes
+            raw_codes = df.iloc[0].dropna().astype(str).str.strip().tolist()
+            cmo_list = [x for x in raw_codes if x.upper().startswith(('CMO', 'VMO'))]
+            if cmo_list:
+                return sorted(list(set(cmo_list)))
+        except:
+            pass
+    return [f"CMO{str(i).zfill(3)}" for i in [2, 20, 37, 101, 102, 108, 111, 119, 132, 141, 145, 146, 242, 275, 296, 305]]
 
 cmo_options = extract_real_cmo_data()
 years_options = [2026, 2025, 2024]
@@ -185,7 +231,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: NEW INTERACTIVE EVALUATION MATRIX
+# TAB 1: FORM COMPLETION PANEL (MATRIX ENTRY)
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -194,7 +240,7 @@ with tab1:
     with col_yr:
         chosen_year = st.selectbox(T["select_year"], years_options, index=0)
     with col_mnth:
-        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Default to July
+        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Defaults to July
 
     st.subheader(f"{T['form_header']} : {selected_cmo} — ({chosen_month} {chosen_year})")
     st.write(T["form_instruction"])
@@ -207,7 +253,7 @@ with tab1:
     for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
         st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
         
-        # Setting index=None makes the radio list start completely blank
+        # Starts empty (None) forcing auditor choice entry engagement 
         responses[f"task_{idx}"] = st.radio(
             f"Statut {idx}", ["YES", "NO", "N/A"], index=None, key=f"task_radio_{idx}", label_visibility="collapsed"
         )
@@ -230,7 +276,7 @@ with tab1:
             
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    # Scoring Algorithm Logic
+    # Performance Scoring Calculation
     st.markdown("---")
     st.subheader(T["metrics_header"])
     
@@ -239,7 +285,6 @@ with tab1:
     no_count = answers.count("NO")
     na_count = answers.count("N/A")
     
-    # Calculate scores dynamically only if all 14 questions have been addressed
     if not incomplete_selections_flag:
         applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
         base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
@@ -292,7 +337,7 @@ with tab1:
                 "Final_Score": [score_display],
                 "Capped_Flag": ["YES" if is_capped else "NO"]
             }
-            # Add complete granular operational answers directly to schema rows
+            # Add complete question logs context directly into row columns structures
             for i in range(1, 15):
                 payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
                 payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
@@ -308,10 +353,10 @@ with tab1:
                 new_row_df.to_csv(save_path, mode='a', header=False, index=False)
                 
             st.success(f"{T['success_log']} : {typed_signature} !")
-            st.button("Refresh Page / Actualiser Page")
+            st.button("Refresh / Actualiser")
 
 # ==========================================
-# TAB 2: AUDIT LOG MANAGEMENT & SEARCH TAB
+# TAB 2: AUDIT LOG MANAGEMENT & EXHAUSTIVE DOWNLOADS
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -322,7 +367,7 @@ with tab2:
     else:
         history_df = pd.read_csv(save_path)
         
-        # Interactive Live Search Parameter Grid
+        # Interactive Search Filters inside Content Area
         h_col1, h_col2, h_col3, h_col4 = st.columns(4)
         with h_col1:
             s_user = st.text_input(T["search_user"], value="", key="search_user_input")
@@ -333,7 +378,7 @@ with tab2:
         with h_col4:
             s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="search_year_select")
             
-        # Filter matching database sets live
+        # Execute query filters live
         filtered_df = history_df.copy()
         if s_user.strip():
             filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
@@ -345,12 +390,12 @@ with tab2:
             filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
             
         if filtered_df.empty:
-            st.warning("No records found matching current criteria.")
+            st.warning("No matrix records found matching criteria.")
         else:
             display_columns = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
             st.dataframe(filtered_df[display_columns], use_container_width=True)
             
-            # --- RECORD PURGING ENGINE ---
+            # --- MANAGE RECORD PURGING ENGINE ---
             st.markdown("### 🗑️ Record Management")
             selected_report_to_delete = st.selectbox("Select Report ID to Delete / Purge:", ["-- Select --"] + filtered_df["Report_ID"].tolist())
             
@@ -365,7 +410,7 @@ with tab2:
             dl_col1, dl_col2 = st.columns(2)
             
             with dl_col1:
-                # 📊 EXCEL COMPREHENSIVE EXPORT ENGINE
+                # 📊 FULL COMPREHENSIVE EXCEL EXPORT ENGINE
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                     filtered_df.to_excel(writer, index=False, sheet_name='Comprehensive Data Log')
@@ -373,12 +418,12 @@ with tab2:
                 st.download_button(
                     label=T["dl_excel"],
                     data=excel_buffer.getvalue(),
-                    file_name=f"Indigo_Full_Compliance_Dump.xlsx",
+                    file_name=f"Indigo_Full_Matrix_Dump.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
             with dl_col2:
-                # 📄 FULL PDF COMPREHENSIVE EXPORT ENGINE
+                # 📄 EXHAUSTIVE PDF COMPILER (Includes Full Questions & Comments Context)
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                 styles = getSampleStyleSheet()
@@ -387,16 +432,16 @@ with tab2:
                 style_header = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.whitesmoke)
                 
                 story = []
-                story.append(Paragraph(f"<b>INDIGO PARK CANADA — FULL AUDIT EXHAUSTIVE LOG</b>", styles['Heading2']))
-                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')} | Matches Found: {len(filtered_df)}", styles['Normal']))
+                story.append(Paragraph(f"<b>INDIGO PARK CANADA — CITY REPORTING COMPREHENSIVE LOG</b>", styles['Heading2']))
+                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')} | Records Found: {len(filtered_df)}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
                 for idx, row in filtered_df.iterrows():
-                    story.append(Paragraph(f"<b>Audit Report Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
-                    story.append(Paragraph(f"Auditor Signature: {row['User']} | Date Filed: {row['Timestamp']} | ID: {row['Report_ID']}", styles['Normal']))
+                    story.append(Paragraph(f"<b>Matrix Record Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
+                    story.append(Paragraph(f"Filed By: {row['User']} | Date Stamp: {row['Timestamp']} | Reference ID: {row['Report_ID']}", styles['Normal']))
                     story.append(Spacer(1, 5))
                     
-                    pdf_table_data = [[Paragraph("No.", style_header), Paragraph("Mandatory Operational Indicator Metric", style_header), Paragraph("Status", style_header), Paragraph("Justification/Comment", style_header)]]
+                    pdf_table_data = [[Paragraph("No.", style_header), Paragraph("City Reporting Matrix Mandate Target Indicator", style_header), Paragraph("Status", style_header), Paragraph("Justification/Comment Context", style_header)]]
                     
                     for i in range(1, 15):
                         q_txt = str(row[f"Q{i}_Task_Text"])
@@ -427,6 +472,6 @@ with tab2:
                 st.download_button(
                     label=T["dl_pdf"],
                     data=pdf_buffer.getvalue(),
-                    file_name=f"Indigo_Comprehensive_Audits_Report.pdf",
+                    file_name=f"Indigo_Comprehensive_Matrix_Report.pdf",
                     mime="application/pdf"
                 )
