@@ -47,13 +47,13 @@ LANG_DICT = {
         "select_year": "Select Report Target Year:",
         "select_month": "Select Report Target Month:",
         "form_header": "Monthly Validation Form",
-        "form_instruction": "Fill out the status for all 14 mandatory compliance items:",
+        "form_instruction": "Please choose a status for all 14 mandatory compliance items below:",
         "comment_placeholder": "Provide specific justification details for this indicator...",
-        "comment_warning": "⚠️ Please fill out all context comments for items marked NO or N/A.",
+        "comment_warning": "⚠️ Please select a choice for all 14 indicators and fill out context comments for items marked NO or N/A.",
         "metrics_header": "📊 Performance Metrics Results",
         "m_status": "Form Status",
         "m_complete": "Form Completed",
-        "m_incomplete": "Incomplete",
+        "m_incomplete": "Incomplete / Missing Selections",
         "m_score": "Operational Performance Score",
         "m_capped": "Penalized Max Capping (No Client Meeting)",
         "m_passed": "Validated Tasks (YES)",
@@ -61,7 +61,7 @@ LANG_DICT = {
         "sign_label": "Type your Full Name to sign electronically:",
         "attest_label": "I verify that the answers provided above are accurate and true.",
         "submit_btn": "💾 Save & Sync Report to Database",
-        "err_missing": "Submission Blocked: You must enter your name, check the attestation box, and fill out all conditional comments.",
+        "err_missing": "Submission Blocked: You must make a selection for every item, fill required comments, type your name, and check the attestation box.",
         "success_log": "🎉 Report securely saved to history and signed by",
         "no_history": "No records found in the database yet.",
         "history_title": "🔎 Filter, Search & Manage Historical Audits",
@@ -72,7 +72,6 @@ LANG_DICT = {
         "all": "All",
         "dl_excel": "📥 Download FULL Comprehensive Report (Excel)",
         "dl_pdf": "📥 Download FULL Comprehensive Report (PDF)",
-        "delete_header": "Action/Actions",
         "delete_confirm": "Deleted report entry successfully.",
         "tasks": [
             "Complete operational site report",
@@ -101,13 +100,13 @@ LANG_DICT = {
         "select_year": "Sélectionner l'année cible du rapport :",
         "select_month": "Sélectionner le mois cible du rapport :",
         "form_header": "Formulaire de validation mensuelle",
-        "form_instruction": "Indiquez le statut pour l'ensemble des 14 indicateurs obligatoires :",
+        "form_instruction": "Veuillez sélectionner un statut pour chacun des 14 indicateurs obligatoires :",
         "comment_placeholder": "Fournir les détails de justification pour cet indicateur...",
-        "comment_warning": "⚠️ Veuillez remplir tous les commentaires de justification pour les éléments cochés 'NO' ou 'N/A'.",
+        "comment_warning": "⚠️ Veuillez répondre à toutes les questions et remplir les justifications obligatoires pour les choix 'NO' ou 'N/A'.",
         "metrics_header": "📊 Résultats Métriques de Performance",
         "m_status": "Statut de saisie",
         "m_complete": "Formulaire Complété",
-        "m_incomplete": "Saisie Incomplète",
+        "m_incomplete": "Sélection Incomplète",
         "m_score": "Indice de Performance Réel",
         "m_capped": "Pénalité maximum appliquée (Réunion Client manquante)",
         "m_passed": "Tâches Validées (YES)",
@@ -115,7 +114,7 @@ LANG_DICT = {
         "sign_label": "Saisissez votre Nom et Prénom complet pour la signature électronique :",
         "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes.",
         "submit_btn": "💾 Valider et Enregistrer dans la Base Historique",
-        "err_missing": "Action Bloquée : Vous devez saisir votre signature nominative, cocher l'attestation, et remplir tous les commentaires obligatoires.",
+        "err_missing": "Action Bloquée : Vous devez répondre à tout le formulaire, justifier les NO/NA, inscrire votre nom et cocher l'attestation.",
         "success_log": "🎉 Rapport synchronisé avec succès ! Enregistré de manière sécurisée par",
         "no_history": "Aucun enregistrement trouvé dans la base de données pour le moment.",
         "history_title": "🔎 Filtrer, chercher et gérer l'historique des audits",
@@ -126,7 +125,6 @@ LANG_DICT = {
         "all": "Tous",
         "dl_excel": "📥 Télécharger le rapport COMPLET (Excel)",
         "dl_pdf": "📥 Télécharger le rapport COMPLET (PDF)",
-        "delete_header": "Actions",
         "delete_confirm": "Rapport supprimé avec succès de la base.",
         "tasks": [
             "Rapport opérationnel complet du site",
@@ -147,7 +145,7 @@ LANG_DICT = {
     }
 }
 
-# Language Configuration Toggle
+# Language Selector
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
@@ -187,7 +185,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: OPERATIONAL EVALUATION SUBMISSION
+# TAB 1: NEW INTERACTIVE EVALUATION MATRIX
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -203,16 +201,21 @@ with tab1:
     
     responses = {}
     task_comments = {}
+    incomplete_selections_flag = False
     missing_comments_flag = False
     
     for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
-        # Display tasks using the currently selected localized language
         st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
+        
+        # Setting index=None makes the radio list start completely blank
         responses[f"task_{idx}"] = st.radio(
-            f"Statut {idx}", ["YES", "NO", "N/A"], key=f"task_radio_{idx}", label_visibility="collapsed"
+            f"Statut {idx}", ["YES", "NO", "N/A"], index=None, key=f"task_radio_{idx}", label_visibility="collapsed"
         )
         
-        if responses[f"task_{idx}"] in ["NO", "N/A"]:
+        if responses[f"task_{idx}"] is None:
+            incomplete_selections_flag = True
+            task_comments[f"comment_{idx}"] = ""
+        elif responses[f"task_{idx}"] in ["NO", "N/A"]:
             st.markdown(f"<div class='reason-box'>", unsafe_allow_html=True)
             task_comments[f"comment_{idx}"] = st.text_input(
                 f"Justification / Reason ({responses[f'task_{idx}']}) *",
@@ -231,43 +234,52 @@ with tab1:
     st.markdown("---")
     st.subheader(T["metrics_header"])
     
-    answers = list(responses.values())
+    answers = [v for v in responses.values() if v is not None]
     yes_count = answers.count("YES")
     no_count = answers.count("NO")
     na_count = answers.count("N/A")
     
-    applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
-    base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
-    
-    is_capped = False
-    if responses["task_8"] == "NO" and base_score > 85.0:
-        base_score = 85.0
-        is_capped = True
+    # Calculate scores dynamically only if all 14 questions have been addressed
+    if not incomplete_selections_flag:
+        applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
+        base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
+        
+        is_capped = False
+        if responses["task_8"] == "NO" and base_score > 85.0:
+            base_score = 85.0
+            is_capped = True
+        score_display = f"{base_score:.1f}%"
+        status_display = T["m_complete"]
+    else:
+        base_score = 0.0
+        is_capped = False
+        score_display = "--"
+        status_display = T["m_incomplete"]
+        applicable_count = 0
         
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        st.metric(label=T["m_status"], value=T["m_complete"] if (yes_count + no_count + na_count == 14) else T["m_incomplete"])
+        st.metric(label=T["m_status"], value=status_display)
     with col_m2:
         if is_capped:
-            st.metric(label=T["m_score"], value=f"{base_score:.1f}%", delta=f"- {T['m_capped']}", delta_color="inverse")
+            st.metric(label=T["m_score"], value=score_display, delta=f"- {T['m_capped']}", delta_color="inverse")
         else:
-            st.metric(label=T["m_score"], value=f"{base_score:.1f}%")
+            st.metric(label=T["m_score"], value=score_display)
     with col_m3:
-        st.metric(label=T["m_passed"], value=f"{yes_count} / {applicable_count}")
+        st.metric(label=T["m_passed"], value=f"{yes_count} / {14 - na_count if not incomplete_selections_flag else 14}")
 
     st.markdown("---")
     st.subheader(T["sign_header"])
     typed_signature = st.text_input(T["sign_label"])
     attestation_check = st.checkbox(T["attest_label"])
     
-    if missing_comments_flag:
+    if incomplete_selections_flag or missing_comments_flag:
         st.warning(T["comment_warning"])
         
     if st.button(T["submit_btn"]):
-        if typed_signature.strip() == "" or not attestation_check or missing_comments_flag:
+        if incomplete_selections_flag or missing_comments_flag or typed_signature.strip() == "" or not attestation_check:
             st.error(T["err_missing"])
         else:
-            # Generate a unique ID for every submission row to allow explicit deletion
             unique_report_id = f"REF-{int(datetime.datetime.now().timestamp())}"
             
             payload = {
@@ -277,10 +289,10 @@ with tab1:
                 "Month": [chosen_month],
                 "User": [typed_signature.strip()],
                 "CMO_ID": [selected_cmo],
-                "Final_Score": [f"{base_score:.1f}%"],
+                "Final_Score": [score_display],
                 "Capped_Flag": ["YES" if is_capped else "NO"]
             }
-            # Append complete question text, choices, and responses directly into the document data payload
+            # Add complete granular operational answers directly to schema rows
             for i in range(1, 15):
                 payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
                 payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
@@ -296,9 +308,10 @@ with tab1:
                 new_row_df.to_csv(save_path, mode='a', header=False, index=False)
                 
             st.success(f"{T['success_log']} : {typed_signature} !")
+            st.button("Refresh Page / Actualiser Page")
 
 # ==========================================
-# TAB 2: MANAGEMENT COMPONENT & SEARCH TAB
+# TAB 2: AUDIT LOG MANAGEMENT & SEARCH TAB
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -309,7 +322,7 @@ with tab2:
     else:
         history_df = pd.read_csv(save_path)
         
-        # Interactive Live Search Parameter Rows
+        # Interactive Live Search Parameter Grid
         h_col1, h_col2, h_col3, h_col4 = st.columns(4)
         with h_col1:
             s_user = st.text_input(T["search_user"], value="", key="search_user_input")
@@ -320,7 +333,7 @@ with tab2:
         with h_col4:
             s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="search_year_select")
             
-        # Execute query filters live
+        # Filter matching database sets live
         filtered_df = history_df.copy()
         if s_user.strip():
             filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
@@ -332,13 +345,12 @@ with tab2:
             filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
             
         if filtered_df.empty:
-            st.warning("No records match your exact search criteria.")
+            st.warning("No records found matching current criteria.")
         else:
-            # Display interactive administrative records view
             display_columns = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
             st.dataframe(filtered_df[display_columns], use_container_width=True)
             
-            # --- ROW PURGING ENGINE (DELETE INDIVIDUAL RECORDS) ---
+            # --- RECORD PURGING ENGINE ---
             st.markdown("### 🗑️ Record Management")
             selected_report_to_delete = st.selectbox("Select Report ID to Delete / Purge:", ["-- Select --"] + filtered_df["Report_ID"].tolist())
             
@@ -353,7 +365,7 @@ with tab2:
             dl_col1, dl_col2 = st.columns(2)
             
             with dl_col1:
-                # 📊 EXCEL EXPORT ENGINE: Pulls ALL task columns into the file
+                # 📊 EXCEL COMPREHENSIVE EXPORT ENGINE
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                     filtered_df.to_excel(writer, index=False, sheet_name='Comprehensive Data Log')
@@ -366,12 +378,11 @@ with tab2:
                 )
                 
             with dl_col2:
-                # 📄 EXECUTIVE PDF COMPILER: Renders exhaustive data logs including text and comments
+                # 📄 FULL PDF COMPREHENSIVE EXPORT ENGINE
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                 styles = getSampleStyleSheet()
                 
-                # Custom Style wrappers for data wrapping inside cells safely
                 style_normal = ParagraphStyle(name='WrapText', parent=styles['Normal'], fontSize=8, leading=10)
                 style_header = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.whitesmoke)
                 
@@ -380,7 +391,6 @@ with tab2:
                 story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')} | Matches Found: {len(filtered_df)}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
-                # Dynamic compilation building loops inside PDF template page blocks
                 for idx, row in filtered_df.iterrows():
                     story.append(Paragraph(f"<b>Audit Report Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
                     story.append(Paragraph(f"Auditor Signature: {row['User']} | Date Filed: {row['Timestamp']} | ID: {row['Report_ID']}", styles['Normal']))
