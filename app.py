@@ -4,7 +4,7 @@ import datetime
 import os
 import io
 
-# Secure ReportLab Component Imports for PDF compilation
+# Importation sécurisée de ReportLab pour les exports PDF
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -18,7 +18,7 @@ except ImportError:
     from reportlab.lib import colors
 
 # ==========================================
-# 1. PAGE CONFIGURATION & BRAND STYLING
+# 1. CONFIGURATION DE LA PAGE & DESIGN INDIGO
 # ==========================================
 st.set_page_config(page_title="Indigo Park City Matrix Portal", layout="wide", page_icon="🅿️")
 
@@ -32,17 +32,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Exact match with your Excel spreadsheet filename
+# Fichier maître des lots
 master_excel_file = 'Montreal Lot List.xlsx'
 excel_exists = os.path.isfile(master_excel_file)
 
 # ==========================================
-# 2. BILINGUAL TRANSLATION DICTIONARY
+# 2. DICTIONNAIRE BILINGUE - GRILLE CITY REPORTING MATRIX 2026
 # ==========================================
 LANG_DICT = {
     "English": {
         "title": "City Reporting Matrix Portal",
-        "subtitle": "Montreal Region Compliance Tracker & Reference Hub",
+        "subtitle": "Montreal Region Compliance Tracker & Reference Hub (2026 Criteria)",
         "sidebar_lang": "🌐 Language / Langue",
         "sidebar_ref_title": "📚 Reference Documents",
         "sidebar_ref_desc": "Expand to read on-screen or download operational standards sheets:",
@@ -52,15 +52,15 @@ LANG_DICT = {
         "select_year": "Select Target Matrix Year:",
         "select_month": "Select Target Matrix Month:",
         "form_header": "City Reporting Matrix Log",
-        "form_instruction": "Please choose a status for all 14 mandatory operational indicator items:",
+        "form_instruction": "Please choose a status for all 9 official operational indicators from the 2026 Matrix:",
         "comment_placeholder": "Provide specific justification details for this indicator...",
-        "comment_warning": "⚠️ Please select a choice for all 14 indicators and fill out context comments for items marked NO or N/A.",
+        "comment_warning": "⚠️ Please select a choice for all 9 indicators and fill out context comments for items marked NO or N/A.",
         "metrics_header": "📊 Performance Metrics Results",
         "m_status": "Form Status",
         "m_complete": "Form Completed",
         "m_incomplete": "Incomplete / Missing Selections",
         "m_score": "Operational Performance Score",
-        "m_capped": "Penalized Max Capping (No Client Meeting)",
+        "m_capped": "Penalized Max Capping (No Scheduled Client Meeting)",
         "m_passed": "Validated Tasks (YES)",
         "sign_header": "🖋️ Digital Signature & Verification",
         "sign_label": "Type your Full Name to sign electronically:",
@@ -79,25 +79,20 @@ LANG_DICT = {
         "dl_pdf": "📥 Download FULL Comprehensive Report (PDF)",
         "delete_confirm": "Report deleted successfully from history.",
         "tasks": [
-            "Complete operational site report",
-            "Site visit by site manager/supervisor - internal",
-            "Site visit by site manager/supervisor - external",
-            "Account manager call to the client",
-            "Account manager site visit / internal review",
-            "Account manager site visit / external review",
-            "Account manager - Contact with site team",
-            "CRITICAL: Account manager - Meeting with the client (Face-to-Face)",
-            "General Manager call to the client",
-            "General Manager contacts the client in person",
-            "Site visit by General Manager / internal and external review",
-            "Vice President of Operations contacts the client in person",
-            "Debriefs and marketing for special/sporting events",
-            "Propose discussions/propositions focused on value-add, revenue generation, or pricing recommendations"
+            "Tier 1 monthly report completed",
+            "CRITICAL: Scheduled monthly meeting/call completed",
+            "Unplanned monthly contact made by the General Manager",
+            "Industry news shared every month",
+            "IPC/Indigo Group news shared every month",
+            "Monthly SMILE audit completed",
+            "Marketing and special/sports events reporting completed",
+            "Value-add propositions delivered to clients each month",
+            "Other reference benchmarks or points of interest discussed"
         ]
     },
     "Français": {
         "title": "Portail City Reporting Matrix",
-        "subtitle": "Suivi de conformité Région de Montréal & Centre de Références",
+        "subtitle": "Suivi de conformité Région de Montréal & Centre de Références (Critères 2026)",
         "sidebar_lang": "🌐 Langue / Language",
         "sidebar_ref_title": "📚 Documents de Référence",
         "sidebar_ref_desc": "Déroulez pour lire directement à l'écran ou téléchargez les guides officiels :",
@@ -107,7 +102,7 @@ LANG_DICT = {
         "select_year": "Sélectionner l'année cible de la matrice :",
         "select_month": "Sélectionner le mois cible de la matrice :",
         "form_header": "Saisie de la City Reporting Matrix",
-        "form_instruction": "Veuillez sélectionner un statut pour chacun des 14 indicateurs obligatoires :",
+        "form_instruction": "Veuillez sélectionner un statut pour chacun des 9 indicateurs obligatoires de la Matrice 2026 :",
         "comment_placeholder": "Fournir les détails de justification pour cet indicateur...",
         "comment_warning": "⚠️ Veuillez répondre à toutes les questions et remplir les justifications obligatoires pour les choix 'NO' ou 'N/A'.",
         "metrics_header": "📊 Résultats Métriques de Performance",
@@ -119,7 +114,7 @@ LANG_DICT = {
         "m_passed": "Tâches Validées (YES)",
         "sign_header": "🖋️ Signature et Validation Légale",
         "sign_label": "Saisissez votre Nom et Prénom complet pour la signature électronique :",
-        "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes.",
+        "attest_label": "Je vérifie que les réponses fournies ci-dessus sont exactes et réelles.",
         "submit_btn": "💾 Valider et Enregistrer la Matrice",
         "err_missing": "Action Bloquée : Vous devez répondre à tout le formulaire, justifier les NO/NA, inscrire votre nom et cocher l'attestation.",
         "success_log": "🎉 Matrice synchronisée avec succès ! Enregistrée par",
@@ -134,30 +129,24 @@ LANG_DICT = {
         "dl_pdf": "📥 Télécharger le rapport COMPLET (PDF)",
         "delete_confirm": "Matrice supprimée avec succès de l'historique.",
         "tasks": [
-            "Rapport opérationnel complet du site",
-            "Visite du site par le responsable/superviseur du site - interne",
-            "Visite du site par le responsable/superviseur du site - externe",
-            "Appel du gestionnaire de compte au client",
-            "Visite du gestionnaire de compte sur le site/examen interne",
-            "Visite du gestionnaire de compte sur le site/examen externe",
-            "Gestionnaire de compte - Contact avec l'équipe du site",
-            "CRITICAL: Gestionnaire de compte - Réunion avec le client (Face-to-Face Meeting)",
-            "Appel du directeur général au client",
-            "Le directeur général contacte le client en personne",
-            "Visite du site par le directeur général / examen interne et externe",
-            "Le vice-président des opérations contacte le client en personne",
-            "Comptes rendus et marketing des événements spéciaux/sportifs",
-            "Proposer des discussions/propositions axées sur la valeur ajoutée (Génération de revenus, Recommandations tarifaires)"
+            "Rapport mensuel de niveau 1 terminé",
+            "CRITICAL: Appel/réunion mensuel programmé terminé",
+            "Contact mensuel non planifié effectué par le directeur général",
+            "Actualités de l'industrie partagées chaque mois",
+            "Actualités IPC/Indigo Group partagées chaque mois",
+            "Audit mensuel SMILE terminé",
+            "Marketing et rapports d'événements spéciaux/sportifs terminés",
+            "Des propositions à valeur ajoutée livrées aux clients chaque mois",
+            "Autres points de référence ou d'intérêt"
         ]
     }
 }
 
-# Language Selector
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. SIDEBAR: READABLE & DOWNLOADABLE REFERENCES
+# 3. ONGLETS DE RÉFÉRENCE DANS LA BARRE LATÉRALE
 # ==========================================
 st.sidebar.markdown("---")
 st.sidebar.subheader(T["sidebar_ref_title"])
@@ -172,18 +161,15 @@ if excel_exists:
             if sheet in xls.sheet_names:
                 ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
                 
-                # On-Screen Reading Expander Container
-                with st.sidebar.expander(f"🔍 Read: {sheet}", expanded=False):
+                with st.sidebar.expander(f"🔍 Lire en ligne : {sheet}", expanded=False):
                     st.dataframe(ref_df, use_container_width=True)
                 
-                # Download Buffer Setup
                 ref_buffer = io.BytesIO()
                 with pd.ExcelWriter(ref_buffer, engine='openpyxl') as writer:
                     ref_df.to_excel(writer, index=False, sheet_name=sheet)
                 
-                # Actionable Download Button Trigger
                 st.sidebar.download_button(
-                    label=f"📥 Download: {sheet}",
+                    label=f"📥 Télécharger : {sheet}",
                     data=ref_buffer.getvalue(),
                     file_name=f"Indigo_Reference_{sheet.replace(' ', '_')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -191,12 +177,10 @@ if excel_exists:
                 )
                 st.sidebar.markdown("---")
     except Exception as e:
-        st.sidebar.error(f"Error parsing reference sheets: {e}")
-else:
-    st.sidebar.error(f"⚠️ Master list file '{master_excel_file}' not found.")
+        st.sidebar.error(f"Erreur de lecture : {e}")
 
 # ==========================================
-# 4. MAIN LAYOUT HEADER WITH INTEGRATED LOGO
+# 4. LOGO ET TITRES DE L'APPLICATION
 # ==========================================
 col_logo, col_title = st.columns([1.2, 4])
 with col_logo:
@@ -207,9 +191,7 @@ with col_title:
 
 st.markdown("---")
 
-# ==========================================
-# 5. DYNAMIC MATRIX CMO RETRIEVAL ENGINE
-# ==========================================
+# Extraction dynamique des lots depuis la feuille 'City Reporting Matrix 2026'
 @st.cache_data
 def extract_real_cmo_data():
     if excel_exists:
@@ -231,7 +213,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: OPERATIONAL ENTRY PANEL
+# TAB 1 : MATRICE DE COMPLIANCE (9 QUESTIONS)
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -250,6 +232,7 @@ with tab1:
     incomplete_selections_flag = False
     missing_comments_flag = False
     
+    # Itération sur les 9 questions de la matrice 2026
     for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
         st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
         
@@ -287,8 +270,9 @@ with tab1:
         applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
         base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
         
+        # RÈGLE STRICTE INDIGO : Plafonnement automatique à 85% maximum si la réunion mensuelle programmée (Question 2) n'est pas validée (NO)
         is_capped = False
-        if responses["task_8"] == "NO" and base_score > 85.0:
+        if responses["task_2"] == "NO" and base_score > 85.0:
             base_score = 85.0
             is_capped = True
         score_display = f"{base_score:.1f}%"
@@ -309,7 +293,7 @@ with tab1:
         else:
             st.metric(label=T["m_score"], value=score_display)
     with col_m3:
-        st.metric(label=T["m_passed"], value=f"{yes_count} / {14 - na_count if not incomplete_selections_flag else 14}")
+        st.metric(label=T["m_passed"], value=f"{yes_count} / {len(LANG_DICT['English']['tasks']) - na_count if not incomplete_selections_flag else len(LANG_DICT['English']['tasks'])}")
 
     st.markdown("---")
     st.subheader(T["sign_header"])
@@ -335,7 +319,7 @@ with tab1:
                 "Final_Score": [score_display],
                 "Capped_Flag": ["YES" if is_capped else "NO"]
             }
-            for i in range(1, 15):
+            for i in range(1, len(LANG_DICT["English"]["tasks"]) + 1):
                 payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
                 payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
                 payload[f"Q{i}_Justification"] = [task_comments[f"comment_{i}"]]
@@ -350,10 +334,10 @@ with tab1:
                 new_row_df.to_csv(save_path, mode='a', header=False, index=False)
                 
             st.success(f"{T['success_log']} : {typed_signature} !")
-            st.button("Refresh / Actualiser")
+            st.rerun()
 
 # ==========================================
-# TAB 2: AUDIT LOG HISTORY MANAGEMENT
+# TAB 2 : EXTRACTIONS, AUDITS ET ARCHIVES
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -385,16 +369,16 @@ with tab2:
             filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
             
         if filtered_df.empty:
-            st.warning("No matrix records found matching criteria.")
+            st.warning("Aucun enregistrement de matrice trouvé pour ces critères.")
         else:
             display_columns = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
             st.dataframe(filtered_df[display_columns], use_container_width=True)
             
-            st.markdown("### 🗑️ Record Management")
-            selected_report_to_delete = st.selectbox("Select Report ID to Delete / Purge:", ["-- Select --"] + filtered_df["Report_ID"].tolist())
+            st.markdown("### 🗑️ Gestion des archives")
+            selected_report_to_delete = st.selectbox("Sélectionner un ID de rapport à purger :", ["-- Sélectionner --"] + filtered_df["Report_ID"].tolist())
             
-            if st.button("❌ Permanent Delete Selected Report"):
-                if selected_report_to_delete != "-- Select --":
+            if st.button("❌ Supprimer définitivement ce rapport"):
+                if selected_report_to_delete != "-- Sélectionner --":
                     updated_master_df = history_df[history_df["Report_ID"] != selected_report_to_delete]
                     updated_master_df.to_csv(save_path, index=False)
                     st.success(T["delete_confirm"])
@@ -425,17 +409,17 @@ with tab2:
                 
                 story = []
                 story.append(Paragraph(f"<b>INDIGO PARK CANADA — CITY REPORTING COMPREHENSIVE LOG</b>", styles['Heading2']))
-                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')} | Records Found: {len(filtered_df)}", styles['Normal']))
+                story.append(Paragraph(f"Exporté le : {datetime.date.today().strftime('%Y-%m-%d')} | Enregistrements : {len(filtered_df)}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
                 for idx, row in filtered_df.iterrows():
-                    story.append(Paragraph(f"<b>Matrix Record Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
-                    story.append(Paragraph(f"Filed By: {row['User']} | Date Stamp: {row['Timestamp']} | Reference ID: {row['Report_ID']}", styles['Normal']))
+                    story.append(Paragraph(f"<b>Profil de Matrice : {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score : {row['Final_Score']})", styles['Heading3']))
+                    story.append(Paragraph(f"Saisi par : {row['User']} | Date d'enregistrement : {row['Timestamp']} | Référence ID : {row['Report_ID']}", styles['Normal']))
                     story.append(Spacer(1, 5))
                     
                     pdf_table_data = [[Paragraph("No.", style_header), Paragraph("City Reporting Matrix Mandate Target Indicator", style_header), Paragraph("Status", style_header), Paragraph("Justification/Comment Context", style_header)]]
                     
-                    for i in range(1, 15):
+                    for i in range(1, len(LANG_DICT["English"]["tasks"]) + 1):
                         q_txt = str(row[f"Q{i}_Task_Text"])
                         q_stat = str(row[f"Q{i}_Status"])
                         q_comm = str(row[f"Q{i}_Justification"]) if pd.notna(row[f"Q{i}_Justification"]) else ""
