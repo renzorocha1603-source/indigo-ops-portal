@@ -5,17 +5,17 @@ import os
 import io
 from PIL import Image
 
-# For programmatic PDF generation
+# Secure ReportLab Import
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
 except ImportError:
     os.system('pip install reportlab')
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
 
 # ==========================================
@@ -41,10 +41,6 @@ LANG_DICT = {
         "title": "Operations & Compliance Portal",
         "subtitle": "Montreal Region Lot Management & Best Practices Digital Tracker",
         "sidebar_lang": "🌐 Select Language / Choisir la langue",
-        "sidebar_search": "🔍 Search & Filter Settings",
-        "user_filter": "Filter Database by User Name",
-        "year_filter": "Filter Database by Year",
-        "month_filter": "Filter Database by Month",
         "tab_new": "📝 File New Report",
         "tab_history": "📜 View & Search History",
         "select_cmo": "Select Target Lot ID (CMO):",
@@ -61,16 +57,21 @@ LANG_DICT = {
         "m_score": "Operational Performance Score",
         "m_capped": "Penalized Max Capping (No Client Meeting)",
         "m_passed": "Validated Tasks (YES)",
-        "sign_header": "🖋 Roy Digital Signature & Verification",
+        "sign_header": "🖋️ Digital Signature & Verification",
         "sign_label": "Type your Full Name to sign electronically:",
         "attest_label": "I verify that the answers provided above are accurate and true.",
         "submit_btn": "💾 Save & Sync Report to Database",
         "err_missing": "Submission Blocked: You must enter your name, check the attestation box, and fill out all conditional comments.",
         "success_log": "🎉 Report securely saved to history and signed by",
         "no_history": "No records found in the database yet.",
-        "history_title": "🔎 Historical Audit Database Matrix",
-        "dl_excel": "📥 Download Selected View as Excel",
-        "dl_pdf": "📥 Download Executive PDF Summary",
+        "history_title": "🔎 Filter and Search Historical Audits",
+        "search_user": "Search by User Name:",
+        "search_cmo": "Search by Lot ID (CMO):",
+        "search_month": "Search by Month:",
+        "search_year": "Search by Year:",
+        "all": "All",
+        "dl_excel": "📥 Download Filtered Selection as Excel",
+        "dl_pdf": "📥 Download Filtered Selection as PDF",
         "tasks": [
             "Complete operational site report",
             "Site visit by site manager/supervisor - internal",
@@ -92,10 +93,6 @@ LANG_DICT = {
         "title": "Portail d'Opérations & Conformité",
         "subtitle": "Suivi numérique des lotissements et meilleures pratiques - Région de Montréal",
         "sidebar_lang": "🌐 Choisir la langue / Select Language",
-        "sidebar_search": "🔍 Paramètres de recherche et filtres",
-        "user_filter": "Filtrer la base par nom d'utilisateur",
-        "year_filter": "Filtrer la base par année",
-        "month_filter": "Filtrer la base par mois",
         "tab_new": "📝 Remplir un nouveau rapport",
         "tab_history": "📜 Consulter et chercher l'historique",
         "select_cmo": "Sélectionner l'emplacement cible (CMO) :",
@@ -119,9 +116,14 @@ LANG_DICT = {
         "err_missing": "Action Bloquée : Vous devez saisir votre signature nominative, cocher l'attestation, et remplir tous les commentaires obligatoires.",
         "success_log": "🎉 Rapport synchronisé avec succès ! Enregistré de manière sécurisée par",
         "no_history": "Aucun enregistrement trouvé dans la base de données pour le moment.",
-        "history_title": "🔎 Matrice Historique des Audits Enregistrés",
+        "history_title": "🔎 Filtrer et chercher dans l'historique des audits",
+        "search_user": "Chercher par nom d'utilisateur :",
+        "search_cmo": "Chercher par No de Lot (CMO) :",
+        "search_month": "Chercher par Mois :",
+        "search_year": "Chercher par Année :",
+        "all": "Tous",
         "dl_excel": "📥 Télécharger la sélection sous Excel",
-        "dl_pdf": "📥 Télécharger le rapport exécutif PDF",
+        "dl_pdf": "📥 Télécharger la sélection sous PDF",
         "tasks": [
             "Rapport opérationnel complet du site",
             "Visite du site par le responsable/superviseur du site - interne",
@@ -141,29 +143,16 @@ LANG_DICT = {
     }
 }
 
-# ==========================================
-# 3. SIDEBAR CONTROLS (GLOBAL FILTERS)
-# ==========================================
+# Language Selector Sidebar
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
-st.sidebar.markdown("---")
-st.sidebar.header(T["sidebar_search"])
-filter_user = st.sidebar.text_input(T["user_filter"], value="", placeholder="e.g. Francis")
-
-years_options = [2026, 2025, 2024]
-months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] if selected_lang == "Français" else ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-
-filter_year = st.sidebar.selectbox(T["year_filter"], years_options)
-filter_month = st.sidebar.selectbox(T["month_filter"], months_options)
-
 # ==========================================
-# 4. HEADER LAYOUT WITH FIXED CORPORATE LOGO
+# 3. HEADER LAYOUT WITH FIXED CORPORATE LOGO
 # ==========================================
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
     try:
-        # Fixed to read your specific filename layout asset
         st.image(Image.open("indigo-park-canada-logo.jpg"), width=180)
     except:
         st.write("🅿️ **INDIGO PARK**")
@@ -174,7 +163,7 @@ with col_title:
 st.markdown("---")
 
 # ==========================================
-# 5. DATA LOADING PARSER
+# 4. EXCEL CMO DATA ENGINE
 # ==========================================
 @st.cache_data
 def extract_real_cmo_data():
@@ -189,10 +178,13 @@ def extract_real_cmo_data():
 
 cmo_options = extract_real_cmo_data()
 
+years_options = [2026, 2025, 2024]
+months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] if selected_lang == "Français" else ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: NEW INTERACTIVE EVALUATION MATRIX
+# TAB 1: NEW AUDIT FORM
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -201,7 +193,7 @@ with tab1:
     with col_yr:
         chosen_year = st.selectbox(T["select_year"], years_options, index=0)
     with col_mnth:
-        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Defaults to July
+        chosen_month = st.selectbox(T["select_month"], months_options, index=6) # Default to July
 
     st.subheader(f"{T['form_header']} : {selected_cmo} — ({chosen_month} {chosen_year})")
     st.write(T["form_instruction"])
@@ -231,7 +223,7 @@ with tab1:
             
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    # Performance Scoring Engine Math
+    # Scoring calculation
     st.markdown("---")
     st.subheader(T["metrics_header"])
     
@@ -259,7 +251,6 @@ with tab1:
     with col_m3:
         st.metric(label=T["m_passed"], value=f"{yes_count} / {applicable_count}")
 
-    # E-Signature confirmation block with simplified attestation phrasing
     st.markdown("---")
     st.subheader(T["sign_header"])
     typed_signature = st.text_input(T["sign_label"])
@@ -297,7 +288,7 @@ with tab1:
             st.success(f"{T['success_log']} : {typed_signature} !")
 
 # ==========================================
-# TAB 2: EXPORT ENGINE & HISTORY SEARCH TAB
+# TAB 2: HISTORY - WITH IN-PAGE LIVE FILTERS
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
@@ -306,46 +297,66 @@ with tab2:
     if not os.path.isfile(save_path):
         st.info(T["no_history"])
     else:
+        # Always pull clean ground truth from database file
         history_df = pd.read_csv(save_path)
         
-        if filter_user.strip() != "":
-            history_df = history_df[history_df['User'].str.contains(filter_user, case=False, na=False)]
-        history_df = history_df[(history_df['Year'] == filter_year) & (history_df['Month'] == filter_month)]
-        
-        if history_df.empty:
-            st.warning("No records found matching current search criteria.")
+        # In-page search configuration rows
+        h_col1, h_col2, h_col3, h_col4 = st.columns(4)
+        with h_col1:
+            s_user = st.text_input(T["search_user"], value="")
+        with h_col2:
+            s_cmo = st.text_input(T["search_cmo"], value="")
+        with h_col3:
+            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options)
+        with h_col4:
+            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options])
+            
+        # Process user data matches dynamically
+        filtered_df = history_df.copy()
+        if s_user.strip():
+            filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
+        if s_cmo.strip():
+            filtered_df = filtered_df[filtered_df['CMO_ID'].str.contains(s_cmo, case=False, na=False)]
+        if s_month != T["all"]:
+            filtered_df = filtered_df[filtered_df['Month'] == s_month]
+        if s_year != T["all"]:
+            filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
+            
+        if filtered_df.empty:
+            st.warning("No recorded matrix logs found matching these exact search parameters.")
         else:
-            st.dataframe(history_df, use_container_width=True)
+            st.dataframe(filtered_df, use_container_width=True)
             
-            col_dl1, col_dl2 = st.columns(2)
+            st.markdown("---")
+            dl_col1, dl_col2 = st.columns(2)
             
-            with col_dl1:
+            with dl_col1:
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    history_df.to_excel(writer, index=False, sheet_name='Ops Compliance Data')
+                    filtered_df.to_excel(writer, index=False, sheet_name='Filtered Ops Data')
                 
                 st.download_button(
                     label=T["dl_excel"],
                     data=excel_buffer.getvalue(),
-                    file_name=f"Indigo_Ops_Report_{filter_month}_{filter_year}.xlsx",
+                    file_name=f"Indigo_Filtered_Report.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-            with col_dl2:
+            with dl_col2:
                 pdf_buffer = io.BytesIO()
                 doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
                 styles = getSampleStyleSheet()
                 
                 story = []
-                story.append(Paragraph(f"<b>INDIGO PARK CANADA — REGIONAL AUDIT REPORT</b>", styles['Heading1']))
-                story.append(Paragraph(f"Generated On: {datetime.date.today().strftime('%Y-%m-%d')} | Selection: {filter_month} {filter_year}", styles['Normal']))
+                story.append(Paragraph(f"<b>INDIGO PARK CANADA — OPÉRATIONS HISTORIQUE EXPORT</b>", styles['Heading1']))
+                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
-                table_data = [["CMO ID", "Auditor User", "Performance Score", "Face-Time Capped?"]]
-                for _, row in history_df.iterrows():
-                    table_data.append([str(row['CMO_ID']), str(row['User']), str(row['Final_Score']), str(row['Capped_Flag'])])
+                table_data = [["CMO ID", "Auditor User", "Month", "Year", "Score"]]
+                for _, row in filtered_df.iterrows():
+                    table_data.append([str(row['CMO_ID']), str(row['User']), str(row['Month']), str(row['Year']), str(row['Final_Score'])])
                 
-                pdf_table = Table(table_data, colWidths=[120, 160, 140, 110])
+                pdf_table = Table(table_data, colWidths=[100, 150, 100, 80, 100])
                 pdf_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2D144B')),
                     ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
@@ -362,6 +373,6 @@ with tab2:
                 st.download_button(
                     label=T["dl_pdf"],
                     data=pdf_buffer.getvalue(),
-                    file_name=f"Indigo_Executive_Summary_{filter_month}_{filter_year}.pdf",
+                    file_name=f"Indigo_Filtered_Summary.pdf",
                     mime="application/pdf"
                 )
