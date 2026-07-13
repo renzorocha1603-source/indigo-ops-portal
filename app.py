@@ -5,17 +5,17 @@ import os
 import io
 from PIL import Image
 
-# Secure ReportLab Import
+# Secure ReportLab Component Imports for Deep Custom Layouts
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
 except ImportError:
     os.system('pip install reportlab')
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
 
 # ==========================================
@@ -64,14 +64,16 @@ LANG_DICT = {
         "err_missing": "Submission Blocked: You must enter your name, check the attestation box, and fill out all conditional comments.",
         "success_log": "🎉 Report securely saved to history and signed by",
         "no_history": "No records found in the database yet.",
-        "history_title": "🔎 Filter and Search Historical Audits",
+        "history_title": "🔎 Filter, Search & Manage Historical Audits",
         "search_user": "Search by User Name:",
         "search_cmo": "Search by Lot ID (CMO):",
         "search_month": "Search by Month:",
         "search_year": "Search by Year:",
         "all": "All",
-        "dl_excel": "📥 Download Filtered Selection as Excel",
-        "dl_pdf": "📥 Download Filtered Selection as PDF",
+        "dl_excel": "📥 Download FULL Comprehensive Report (Excel)",
+        "dl_pdf": "📥 Download FULL Comprehensive Report (PDF)",
+        "delete_header": "Action/Actions",
+        "delete_confirm": "Deleted report entry successfully.",
         "tasks": [
             "Complete operational site report",
             "Site visit by site manager/supervisor - internal",
@@ -116,14 +118,16 @@ LANG_DICT = {
         "err_missing": "Action Bloquée : Vous devez saisir votre signature nominative, cocher l'attestation, et remplir tous les commentaires obligatoires.",
         "success_log": "🎉 Rapport synchronisé avec succès ! Enregistré de manière sécurisée par",
         "no_history": "Aucun enregistrement trouvé dans la base de données pour le moment.",
-        "history_title": "🔎 Filtrer et chercher dans l'historique des audits",
+        "history_title": "🔎 Filtrer, chercher et gérer l'historique des audits",
         "search_user": "Chercher par nom d'utilisateur :",
         "search_cmo": "Chercher par No de Lot (CMO) :",
         "search_month": "Chercher par Mois :",
         "search_year": "Chercher par Année :",
         "all": "Tous",
-        "dl_excel": "📥 Télécharger la sélection sous Excel",
-        "dl_pdf": "📥 Télécharger la sélection sous PDF",
+        "dl_excel": "📥 Télécharger le rapport COMPLET (Excel)",
+        "dl_pdf": "📥 Télécharger le rapport COMPLET (PDF)",
+        "delete_header": "Actions",
+        "delete_confirm": "Rapport supprimé avec succès de la base.",
         "tasks": [
             "Rapport opérationnel complet du site",
             "Visite du site par le responsable/superviseur du site - interne",
@@ -143,12 +147,12 @@ LANG_DICT = {
     }
 }
 
-# Language Selector Sidebar
+# Language Configuration Toggle
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. HEADER LAYOUT WITH FIXED CORPORATE LOGO
+# 3. HEADER DESIGN WITH LOGO
 # ==========================================
 col_logo, col_title = st.columns([1, 4])
 with col_logo:
@@ -163,7 +167,7 @@ with col_title:
 st.markdown("---")
 
 # ==========================================
-# 4. EXCEL CMO DATA ENGINE
+# 4. EXCEL CMO RETRIEVAL ENGINE
 # ==========================================
 @st.cache_data
 def extract_real_cmo_data():
@@ -177,14 +181,13 @@ def extract_real_cmo_data():
         return [f"CMO{str(i).zfill(3)}" for i in [2, 4, 8, 9, 10, 15, 20, 25, 37, 101, 102]]
 
 cmo_options = extract_real_cmo_data()
-
 years_options = [2026, 2025, 2024]
 months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] if selected_lang == "Français" else ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: NEW AUDIT FORM
+# TAB 1: OPERATIONAL EVALUATION SUBMISSION
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -202,8 +205,9 @@ with tab1:
     task_comments = {}
     missing_comments_flag = False
     
-    for idx, task in enumerate(T["tasks"], start=1):
-        st.markdown(f"**{idx}. {task}**")
+    for idx, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
+        # Display tasks using the currently selected localized language
+        st.markdown(f"**{idx}. {T['tasks'][idx-1]}**")
         responses[f"task_{idx}"] = st.radio(
             f"Statut {idx}", ["YES", "NO", "N/A"], key=f"task_radio_{idx}", label_visibility="collapsed"
         )
@@ -223,7 +227,7 @@ with tab1:
             
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    # Scoring calculation
+    # Scoring Algorithm Logic
     st.markdown("---")
     st.subheader(T["metrics_header"])
     
@@ -232,7 +236,7 @@ with tab1:
     no_count = answers.count("NO")
     na_count = answers.count("N/A")
     
-    applicable_count = len(T["tasks"]) - na_count
+    applicable_count = len(LANG_DICT["English"]["tasks"]) - na_count
     base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
     
     is_capped = False
@@ -263,7 +267,11 @@ with tab1:
         if typed_signature.strip() == "" or not attestation_check or missing_comments_flag:
             st.error(T["err_missing"])
         else:
+            # Generate a unique ID for every submission row to allow explicit deletion
+            unique_report_id = f"REF-{int(datetime.datetime.now().timestamp())}"
+            
             payload = {
+                "Report_ID": [unique_report_id],
                 "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
                 "Year": [chosen_year],
                 "Month": [chosen_month],
@@ -272,9 +280,11 @@ with tab1:
                 "Final_Score": [f"{base_score:.1f}%"],
                 "Capped_Flag": ["YES" if is_capped else "NO"]
             }
+            # Append complete question text, choices, and responses directly into the document data payload
             for i in range(1, 15):
-                payload[f"Task_{i}_Status"] = [responses[f"task_{i}"]]
-                payload[f"Task_{i}_Comment"] = [task_comments[f"comment_{i}"]]
+                payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
+                payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
+                payload[f"Q{i}_Justification"] = [task_comments[f"comment_{i}"]]
                 
             new_row_df = pd.DataFrame(payload)
             save_path = "data/submissions.csv"
@@ -288,30 +298,29 @@ with tab1:
             st.success(f"{T['success_log']} : {typed_signature} !")
 
 # ==========================================
-# TAB 2: HISTORY - WITH IN-PAGE LIVE FILTERS
+# TAB 2: MANAGEMENT COMPONENT & SEARCH TAB
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
     save_path = "data/submissions.csv"
     
-    if not os.path.isfile(save_path):
+    if not os.path.isfile(save_path) or os.path.getsize(save_path) == 0:
         st.info(T["no_history"])
     else:
-        # Always pull clean ground truth from database file
         history_df = pd.read_csv(save_path)
         
-        # In-page search configuration rows
+        # Interactive Live Search Parameter Rows
         h_col1, h_col2, h_col3, h_col4 = st.columns(4)
         with h_col1:
-            s_user = st.text_input(T["search_user"], value="")
+            s_user = st.text_input(T["search_user"], value="", key="search_user_input")
         with h_col2:
-            s_cmo = st.text_input(T["search_cmo"], value="")
+            s_cmo = st.text_input(T["search_cmo"], value="", key="search_cmo_input")
         with h_col3:
-            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options)
+            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options, key="search_month_select")
         with h_col4:
-            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options])
+            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="search_year_select")
             
-        # Process user data matches dynamically
+        # Execute query filters live
         filtered_df = history_df.copy()
         if s_user.strip():
             filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
@@ -323,56 +332,91 @@ with tab2:
             filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
             
         if filtered_df.empty:
-            st.warning("No recorded matrix logs found matching these exact search parameters.")
+            st.warning("No records match your exact search criteria.")
         else:
-            st.dataframe(filtered_df, use_container_width=True)
+            # Display interactive administrative records view
+            display_columns = ["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]
+            st.dataframe(filtered_df[display_columns], use_container_width=True)
             
+            # --- ROW PURGING ENGINE (DELETE INDIVIDUAL RECORDS) ---
+            st.markdown("### 🗑️ Record Management")
+            selected_report_to_delete = st.selectbox("Select Report ID to Delete / Purge:", ["-- Select --"] + filtered_df["Report_ID"].tolist())
+            
+            if st.button("❌ Permanent Delete Selected Report"):
+                if selected_report_to_delete != "-- Select --":
+                    updated_master_df = history_df[history_df["Report_ID"] != selected_report_to_delete]
+                    updated_master_df.to_csv(save_path, index=False)
+                    st.success(T["delete_confirm"])
+                    st.rerun()
+
             st.markdown("---")
             dl_col1, dl_col2 = st.columns(2)
             
             with dl_col1:
+                # 📊 EXCEL EXPORT ENGINE: Pulls ALL task columns into the file
                 excel_buffer = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    filtered_df.to_excel(writer, index=False, sheet_name='Filtered Ops Data')
+                    filtered_df.to_excel(writer, index=False, sheet_name='Comprehensive Data Log')
                 
                 st.download_button(
                     label=T["dl_excel"],
                     data=excel_buffer.getvalue(),
-                    file_name=f"Indigo_Filtered_Report.xlsx",
+                    file_name=f"Indigo_Full_Compliance_Dump.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
             with dl_col2:
+                # 📄 EXECUTIVE PDF COMPILER: Renders exhaustive data logs including text and comments
                 pdf_buffer = io.BytesIO()
-                doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
                 styles = getSampleStyleSheet()
                 
+                # Custom Style wrappers for data wrapping inside cells safely
+                style_normal = ParagraphStyle(name='WrapText', parent=styles['Normal'], fontSize=8, leading=10)
+                style_header = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.whitesmoke)
+                
                 story = []
-                story.append(Paragraph(f"<b>INDIGO PARK CANADA — OPÉRATIONS HISTORIQUE EXPORT</b>", styles['Heading1']))
-                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')}", styles['Normal']))
+                story.append(Paragraph(f"<b>INDIGO PARK CANADA — FULL AUDIT EXHAUSTIVE LOG</b>", styles['Heading2']))
+                story.append(Paragraph(f"Exported On: {datetime.date.today().strftime('%Y-%m-%d')} | Matches Found: {len(filtered_df)}", styles['Normal']))
                 story.append(Spacer(1, 15))
                 
-                table_data = [["CMO ID", "Auditor User", "Month", "Year", "Score"]]
-                for _, row in filtered_df.iterrows():
-                    table_data.append([str(row['CMO_ID']), str(row['User']), str(row['Month']), str(row['Year']), str(row['Final_Score'])])
+                # Dynamic compilation building loops inside PDF template page blocks
+                for idx, row in filtered_df.iterrows():
+                    story.append(Paragraph(f"<b>Audit Report Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
+                    story.append(Paragraph(f"Auditor Signature: {row['User']} | Date Filed: {row['Timestamp']} | ID: {row['Report_ID']}", styles['Normal']))
+                    story.append(Spacer(1, 5))
+                    
+                    pdf_table_data = [[Paragraph("No.", style_header), Paragraph("Mandatory Operational Indicator Metric", style_header), Paragraph("Status", style_header), Paragraph("Justification/Comment", style_header)]]
+                    
+                    for i in range(1, 15):
+                        q_txt = str(row[f"Q{i}_Task_Text"])
+                        q_stat = str(row[f"Q{i}_Status"])
+                        q_comm = str(row[f"Q{i}_Justification"]) if pd.notna(row[f"Q{i}_Justification"]) else ""
+                        
+                        pdf_table_data.append([
+                            Paragraph(str(i), style_normal),
+                            Paragraph(q_txt, style_normal),
+                            Paragraph(q_stat, style_normal),
+                            Paragraph(q_comm, style_normal)
+                        ])
+                    
+                    row_table = Table(pdf_table_data, colWidths=[25, 275, 50, 200])
+                    row_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2D144B')),
+                        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+                        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#FCFCFC')),
+                        ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+                    ]))
+                    story.append(row_table)
+                    story.append(Spacer(1, 20))
                 
-                pdf_table = Table(table_data, colWidths=[100, 150, 100, 80, 100])
-                pdf_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2D144B')),
-                    ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0,0), (-1,0), 8),
-                    ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#F9F9F9')),
-                    ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-                ]))
-                
-                story.append(pdf_table)
                 doc.build(story)
                 
                 st.download_button(
                     label=T["dl_pdf"],
                     data=pdf_buffer.getvalue(),
-                    file_name=f"Indigo_Filtered_Summary.pdf",
+                    file_name=f"Indigo_Comprehensive_Audits_Report.pdf",
                     mime="application/pdf"
                 )
