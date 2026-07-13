@@ -4,7 +4,7 @@ import datetime
 import os
 import io
 
-# Secure ReportLab Component Imports
+# Secure ReportLab Component Imports for PDF compilation
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -32,7 +32,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# File Validation Guard
+# Exact match with your Excel spreadsheet filename
 master_excel_file = 'Montreal Lot List.xlsx'
 excel_exists = os.path.isfile(master_excel_file)
 
@@ -45,7 +45,7 @@ LANG_DICT = {
         "subtitle": "Montreal Region Compliance Tracker & Reference Hub",
         "sidebar_lang": "🌐 Language / Langue",
         "sidebar_ref_title": "📚 Reference Documents",
-        "sidebar_ref_desc": "Download structural references for operational standards:",
+        "sidebar_ref_desc": "Expand to read on-screen or download operational standards sheets:",
         "tab_new": "📝 Fill City Reporting Matrix",
         "tab_history": "📜 View & Manage Historical Submissions",
         "select_cmo": "Select Target Lot ID (CMO):",
@@ -100,7 +100,7 @@ LANG_DICT = {
         "subtitle": "Suivi de conformité Région de Montréal & Centre de Références",
         "sidebar_lang": "🌐 Langue / Language",
         "sidebar_ref_title": "📚 Documents de Référence",
-        "sidebar_ref_desc": "Téléchargez les guides et normes d'opérations officiels :",
+        "sidebar_ref_desc": "Déroulez pour lire directement à l'écran ou téléchargez les guides officiels :",
         "tab_new": "📝 Remplir la City Reporting Matrix",
         "tab_history": "📜 Consulter & Gérer l'Historique",
         "select_cmo": "Sélectionner l'emplacement cible (CMO) :",
@@ -152,12 +152,12 @@ LANG_DICT = {
     }
 }
 
-# Language Configuration Toggle (Sidebar)
+# Language Selector
 selected_lang = st.sidebar.selectbox(LANG_DICT["English"]["sidebar_lang"], ["Français", "English"])
 T = LANG_DICT[selected_lang]
 
 # ==========================================
-# 3. SIDEBAR: STATIC REFERENCES FILES
+# 3. SIDEBAR: READABLE & DOWNLOADABLE REFERENCES
 # ==========================================
 st.sidebar.markdown("---")
 st.sidebar.subheader(T["sidebar_ref_title"])
@@ -171,28 +171,35 @@ if excel_exists:
         for sheet in reference_sheets:
             if sheet in xls.sheet_names:
                 ref_df = pd.read_excel(master_excel_file, sheet_name=sheet)
+                
+                # On-Screen Reading Expander Container
+                with st.sidebar.expander(f"🔍 Read: {sheet}", expanded=False):
+                    st.dataframe(ref_df, use_container_width=True)
+                
+                # Download Buffer Setup
                 ref_buffer = io.BytesIO()
                 with pd.ExcelWriter(ref_buffer, engine='openpyxl') as writer:
                     ref_df.to_excel(writer, index=False, sheet_name=sheet)
                 
+                # Actionable Download Button Trigger
                 st.sidebar.download_button(
-                    label=f"📄 Download: {sheet}",
+                    label=f"📥 Download: {sheet}",
                     data=ref_buffer.getvalue(),
                     file_name=f"Indigo_Reference_{sheet.replace(' ', '_')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"sidebar_dl_{sheet}"
                 )
+                st.sidebar.markdown("---")
     except Exception as e:
-        st.sidebar.error("Could not parse sidebar sheets.")
+        st.sidebar.error(f"Error parsing reference sheets: {e}")
 else:
-    st.sidebar.warning("Base master list file not detected.")
+    st.sidebar.error(f"⚠️ Master list file '{master_excel_file}' not found.")
 
 # ==========================================
-# 4. MAIN PAGE HEADER LAYOUT WITH DYNAMIC LOGO
+# 4. MAIN LAYOUT HEADER WITH INTEGRATED LOGO
 # ==========================================
 col_logo, col_title = st.columns([1.2, 4])
 with col_logo:
-    # Direct live reference link to your official image hosting URL
     st.image("https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg", use_container_width=True)
 with col_title:
     st.title(T["title"])
@@ -201,7 +208,7 @@ with col_title:
 st.markdown("---")
 
 # ==========================================
-# 5. DYNAMIC TARGET LOT (CMO) RETRIEVAL
+# 5. DYNAMIC MATRIX CMO RETRIEVAL ENGINE
 # ==========================================
 @st.cache_data
 def extract_real_cmo_data():
@@ -224,7 +231,7 @@ months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juille
 tab1, tab2 = st.tabs([T["tab_new"], T["tab_history"]])
 
 # ==========================================
-# TAB 1: FORM COMPLETION PANEL (MATRIX ENTRY)
+# TAB 1: OPERATIONAL ENTRY PANEL
 # ==========================================
 with tab1:
     col_cmo, col_yr, col_mnth = st.columns(3)
@@ -346,7 +353,7 @@ with tab1:
             st.button("Refresh / Actualiser")
 
 # ==========================================
-# TAB 2: AUDIT LOG MANAGEMENT
+# TAB 2: AUDIT LOG HISTORY MANAGEMENT
 # ==========================================
 with tab2:
     st.subheader(T["history_title"])
