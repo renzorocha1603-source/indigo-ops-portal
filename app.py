@@ -3,8 +3,9 @@ import pandas as pd
 import datetime
 import io
 import os
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 
 # --- Setup ---
@@ -13,6 +14,33 @@ DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "submissions.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 LOGO_URL = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
+
+# --- PDF Generation Function ---
+def create_pdf(df):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    elements.append(Paragraph("Indigo Park - City Reporting Matrix", styles['Title']))
+    elements.append(Spacer(1, 12))
+    
+    # Convert DataFrame to list for ReportLab Table
+    data = [df.columns.tolist()] + df.values.tolist()
+    table = Table(data)
+    
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
+    ])
+    table.setStyle(style)
+    elements.append(table)
+    
+    doc.build(elements)
+    return buffer.getvalue()
 
 # --- Data Management ---
 def load_data():
@@ -23,11 +51,10 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# --- Configuration Lists ---
+# --- Config ---
 CMO_LIST = ["CMO001", "CMO002", "CMO020", "CMO037", "CMO101", "CMO108", "CMO111", "CMO145"]
 YEARS = list(range(2024, 2031))
 
-# --- Multilingual Content ---
 TASKS = {
     "English": [
         "Tier 1 monthly report completed",
@@ -66,7 +93,8 @@ LANGS = {
         "sign": "Full Name", "submit": "Submit Report", "del": "Delete Selected Record",
         "comm": "Justification (Required for NO/NA)",
         "attest": "I certify the information is accurate.",
-        "success": "Record Saved!"
+        "success": "Record Saved!",
+        "dl_excel": "📥 Excel", "dl_pdf": "📥 PDF"
     },
     "Français": {
         "title": "Matrice de Rapports",
@@ -75,7 +103,8 @@ LANGS = {
         "sign": "Nom complet", "submit": "Soumettre", "del": "Supprimer l'enregistrement",
         "comm": "Justification (Requise pour NO/NA)",
         "attest": "Je certifie que les informations sont exactes.",
-        "success": "Données enregistrées !"
+        "success": "Données enregistrées !",
+        "dl_excel": "📥 Excel", "dl_pdf": "📥 PDF"
     }
 }
 
@@ -143,7 +172,6 @@ with tab1:
 with tab2:
     df = load_data()
     if not df.empty:
-        # Filtering
         col_f1, col_f2 = st.columns(2)
         s_cmo = col_f1.text_input("Filter by CMO")
         s_year = col_f2.selectbox("Filter by Year", ["All"] + sorted(df['Year'].unique().tolist()))
@@ -154,14 +182,20 @@ with tab2:
         st.dataframe(df, use_container_width=True)
         
         # Actions
-        col1, col2 = st.columns(2)
-        buffer = io.BytesIO()
-        df.to_excel(buffer, index=False)
-        col1.download_button("📥 Download Excel", buffer.getvalue(), "report.xlsx")
+        col1, col2, col3 = st.columns(3)
+        
+        # Excel
+        buffer_xls = io.BytesIO()
+        df.to_excel(buffer_xls, index=False)
+        col1.download_button(T["dl_excel"], buffer_xls.getvalue(), "report.xlsx")
+        
+        # PDF
+        pdf_data = create_pdf(df)
+        col2.download_button(T["dl_pdf"], pdf_data, "report.pdf")
         
         # Delete
         target_idx = st.selectbox("Select row to delete", df.index)
-        if st.button(T["del"]):
+        if col3.button(T["del"]):
             df = df.drop(target_idx)
             save_data(df)
             st.rerun()
