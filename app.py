@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import io
 import os
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
@@ -15,29 +15,32 @@ DATA_FILE = os.path.join(DATA_DIR, "submissions.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 LOGO_URL = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
-# --- PDF Generation Function ---
-def create_pdf(df):
+# --- PDF Generation Function (Vertical Layout) ---
+def create_vertical_pdf(df):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
     styles = getSampleStyleSheet()
     
-    elements.append(Paragraph("Indigo Park - City Reporting Matrix", styles['Title']))
+    elements.append(Paragraph("Indigo Park - City Reporting Matrix Report", styles['Title']))
     elements.append(Spacer(1, 12))
     
-    # Convert DataFrame to list for ReportLab Table
-    data = [df.columns.tolist()] + df.values.tolist()
-    table = Table(data)
-    
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
-    ])
-    table.setStyle(style)
-    elements.append(table)
+    # Process each record as a separate vertical table
+    for index, row in df.iterrows():
+        elements.append(Paragraph(f"Record #{index + 1}", styles['Heading2']))
+        
+        # Prepare vertical data: [[Field, Value]]
+        data = [[str(col), str(val)] for col, val in row.items()]
+        
+        table = Table(data, colWidths=[150, 250])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 20)) # Space between records
     
     doc.build(elements)
     return buffer.getvalue()
@@ -51,31 +54,23 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# --- Config ---
+# --- Configuration Lists ---
 CMO_LIST = ["CMO001", "CMO002", "CMO020", "CMO037", "CMO101", "CMO108", "CMO111", "CMO145"]
 YEARS = list(range(2024, 2031))
 
 TASKS = {
     "English": [
-        "Tier 1 monthly report completed",
-        "CRITICAL: Scheduled monthly meeting/call completed",
-        "Unplanned monthly contact made by the General Manager",
-        "Industry news shared every month",
-        "IPC/Indigo Group news shared every month",
-        "Monthly SMILE audit completed",
-        "Marketing and special/sports events reporting completed",
-        "Value-add propositions delivered to clients each month",
+        "Tier 1 monthly report completed", "CRITICAL: Scheduled monthly meeting/call completed",
+        "Unplanned monthly contact made by the General Manager", "Industry news shared every month",
+        "IPC/Indigo Group news shared every month", "Monthly SMILE audit completed",
+        "Marketing and special/sports events reporting completed", "Value-add propositions delivered to clients each month",
         "Other reference benchmarks or points of interest discussed"
     ],
     "Français": [
-        "Rapport mensuel de niveau 1 terminé",
-        "CRITICAL: Appel/réunion mensuel programmé terminé",
-        "Contact mensuel non planifié effectué par le directeur général",
-        "Actualités de l'industrie partagées chaque mois",
-        "Actualités IPC/Indigo Group partagées chaque mois",
-        "Audit mensuel SMILE terminé",
-        "Marketing et rapports d'événements spéciaux/sportifs terminés",
-        "Des propositions à valeur ajoutée livrées aux clients chaque mois",
+        "Rapport mensuel de niveau 1 terminé", "CRITICAL: Appel/réunion mensuel programmé terminé",
+        "Contact mensuel non planifié effectué par le directeur général", "Actualités de l'industrie partagées chaque mois",
+        "Actualités IPC/Indigo Group partagées chaque mois", "Audit mensuel SMILE terminé",
+        "Marketing et rapports d'événements spéciaux/sportifs terminés", "Des propositions à valeur ajoutée livrées aux clients chaque mois",
         "Autres points de référence ou d'intérêt"
     ]
 }
@@ -87,24 +82,18 @@ MONTHS = {
 
 LANGS = {
     "English": {
-        "title": "City Reporting Matrix",
-        "tab1": "Form", "tab2": "History",
+        "title": "City Reporting Matrix", "tab1": "Form", "tab2": "History",
         "cmo": "Select CMO ID", "year": "Select Year", "month": "Select Month",
         "sign": "Full Name", "submit": "Submit Report", "del": "Delete Selected Record",
-        "comm": "Justification (Required for NO/NA)",
-        "attest": "I certify the information is accurate.",
-        "success": "Record Saved!",
-        "dl_excel": "📥 Excel", "dl_pdf": "📥 PDF"
+        "comm": "Justification (Required for NO/NA)", "attest": "I certify the information is accurate.",
+        "success": "Record Saved!", "dl_excel": "📥 Export Excel (Vertical)", "dl_pdf": "📥 Export PDF (Vertical)"
     },
     "Français": {
-        "title": "Matrice de Rapports",
-        "tab1": "Formulaire", "tab2": "Historique",
+        "title": "Matrice de Rapports", "tab1": "Formulaire", "tab2": "Historique",
         "cmo": "Sélectionner le code CMO", "year": "Sélectionner l'année", "month": "Sélectionner le mois",
         "sign": "Nom complet", "submit": "Soumettre", "del": "Supprimer l'enregistrement",
-        "comm": "Justification (Requise pour NO/NA)",
-        "attest": "Je certifie que les informations sont exactes.",
-        "success": "Données enregistrées !",
-        "dl_excel": "📥 Excel", "dl_pdf": "📥 PDF"
+        "comm": "Justification (Requise pour NO/NA)", "attest": "Je certifie que les informations sont exactes.",
+        "success": "Données enregistrées !", "dl_excel": "📥 Exporter Excel (Vertical)", "dl_pdf": "📥 Exporter PDF (Vertical)"
     }
 }
 
@@ -129,23 +118,18 @@ with tab1:
     
     responses = {}
     comments = {}
-    yes_count = 0
-    na_count = 0
-    total_valid = 0
+    yes_count, total_valid = 0, 0
     
     for i, task in enumerate(task_list):
         st.markdown(f"**{i+1}. {task}**")
         val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
         responses[task] = val
-        
         if val in ["NO", "N/A"]:
             comments[task] = st.text_input(T["comm"], key=f"c_{i}")
             if val == "NO": total_valid += 1
         elif val == "YES":
             yes_count += 1
             total_valid += 1
-        else: # N/A
-            na_count += 1
             
     pct = (yes_count / total_valid * 100) if total_valid > 0 else 0
     st.metric("Completion %", f"{pct:.1f}%")
@@ -154,14 +138,9 @@ with tab1:
     attest = st.checkbox(T["attest"])
     
     if st.button(T["submit"]):
-        if not signature or not attest:
-            st.error("Missing mandatory fields or attestation.")
+        if not signature or not attest: st.error("Missing info.")
         else:
-            new_row = {
-                "Date": datetime.datetime.now().strftime("%Y-%m-%d"), 
-                "Year": year, "Month": month, "CMO": cmo, 
-                "User": signature, "Score": pct
-            }
+            new_row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO": cmo, "User": signature, "Score": pct}
             new_row.update(responses)
             new_row.update({f"Comm_{k}": v for k, v in comments.items()})
             df = load_data()
@@ -181,23 +160,19 @@ with tab2:
         
         st.dataframe(df, use_container_width=True)
         
-        # Actions
         col1, col2, col3 = st.columns(3)
         
-        # Excel
+        # Excel Vertical (Transposed)
         buffer_xls = io.BytesIO()
-        df.to_excel(buffer_xls, index=False)
+        df.T.to_excel(buffer_xls) # .T transposes the dataframe
         col1.download_button(T["dl_excel"], buffer_xls.getvalue(), "report.xlsx")
         
-        # PDF
-        pdf_data = create_pdf(df)
+        # PDF Vertical
+        pdf_data = create_vertical_pdf(df)
         col2.download_button(T["dl_pdf"], pdf_data, "report.pdf")
         
-        # Delete
         target_idx = st.selectbox("Select row to delete", df.index)
         if col3.button(T["del"]):
             df = df.drop(target_idx)
             save_data(df)
             st.rerun()
-    else:
-        st.info("No records found.")
