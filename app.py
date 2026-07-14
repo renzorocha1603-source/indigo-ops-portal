@@ -5,10 +5,11 @@ import io
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.graphics.shapes import Drawing, Wedge, String
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from openpyxl import load_workbook
-from openpyxl.chart import BarChart, Reference
+from openpyxl.chart import DoughnutChart, Reference
 
 # --- Hardcoded Client List ---
 LOT_DATA = [
@@ -36,7 +37,6 @@ LOT_OPTIONS = [f"{d['cmo']} - {d['name']} ({d['client']})" for d in LOT_DATA]
 
 # --- PDF Graphic Helper ---
 def create_progress_circle(pct):
-    from reportlab.graphics.shapes import Drawing, Wedge, String
     d = Drawing(50, 50)
     d.add(Wedge(25, 25, 20, 0, 360, fillColor=colors.whitesmoke, strokeColor=colors.lightgrey))
     angle = (pct / 100) * 360
@@ -55,19 +55,14 @@ def generate_professional_pdf(df, task_list):
     for _, row in df.iterrows():
         elements.append(Paragraph("INDIGO PARK - CITY REPORTING MATRIX", title_style))
         status = "COMPLETED" if row.get('Completed_Flag', False) else "PENDING"
-        # Table for Header + Circle
         elements.append(Table([[
             Paragraph(f"<b>Status:</b> {status}<br/><b>Date:</b> {row['Date']}<br/><b>Location:</b> {row['CMO_Info']}", styles['Normal']),
             create_progress_circle(float(row['Score']))
         ]], colWidths=[400, 60]))
         elements.append(Spacer(1, 20))
-        
         table_data = [["Task", "Status", "Comment"]]
         for task in task_list:
-            val = row.get(task, "N/A")
-            comm = row.get(f"Comm_{task}", "")
-            table_data.append([Paragraph(str(task), styles['Normal']), str(val), Paragraph(str(comm) if pd.notna(comm) else "", styles['Normal'])])
-        
+            table_data.append([Paragraph(str(task), styles['Normal']), str(row.get(task, "N/A")), Paragraph(str(row.get(f"Comm_{task}", "")), styles['Normal'])])
         t = Table(table_data, colWidths=[250, 60, 200])
         t.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9d9d9')), ('GRID', (0, 0), (-1, -1), 0.5, colors.black), ('VALIGN', (0, 0), (-1, -1), 'TOP')]))
         elements.append(t)
@@ -75,21 +70,26 @@ def generate_professional_pdf(df, task_list):
     doc.build(elements)
     return buffer.getvalue()
 
-# --- Excel Graphic Helper ---
-def generate_excel_with_chart(df):
+# --- Excel Vertical + Circle Graphic ---
+def generate_excel_vertical_with_chart(df):
     output = io.BytesIO()
+    # Transpose for vertical view
+    df_t = df.T
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Data')
+        df_t.to_excel(writer, sheet_name='Report')
         wb = writer.book
-        ws = wb['Data']
-        chart = BarChart()
-        chart.type = "col"
-        chart.title = "Completion Score"
-        chart.add_data(Reference(ws, min_col=6, min_row=1, max_row=len(df)+1), titles_from_data=True)
-        ws.add_chart(chart, "K2")
+        ws = wb['Report']
+        # Add Doughnut Chart (Circle)
+        chart = DoughnutChart()
+        chart.title = "Completion %"
+        # Reference the Score row (assuming Score is the 6th row in the transposed df)
+        # In a transposed DF, the row index for 'Score' is 6.
+        data = Reference(ws, min_col=2, min_row=6, max_row=6, max_col=df_t.shape[1]+1)
+        chart.add_data(data, from_rows=True)
+        ws.add_chart(chart, "B10")
     return output.getvalue()
 
-# --- Setup & Main App ---
+# --- Setup ---
 DATA_FILE = "submissions.csv"
 def load_data(): return pd.read_csv(DATA_FILE) if os.path.exists(DATA_FILE) else pd.DataFrame()
 def save_data(df): df.to_csv(DATA_FILE, index=False)
@@ -98,9 +98,8 @@ TASKS = {
     "English": ["Tier 1 monthly report", "CRITICAL: Monthly meeting/call", "Unplanned monthly contact", "Industry news shared", "IPC/Indigo Group news shared", "Monthly SMILE audit", "Marketing/Events reporting", "Value-add propositions", "Other points of interest"],
     "Français": ["Rapport mensuel niveau 1", "CRITICAL: Réunion mensuelle", "Contact mensuel imprévu", "News industrie partagées", "News Indigo partagées", "Audit mensuel SMILE", "Rapports Marketing/Événements", "Propositions valeur ajoutée", "Autres points d'intérêt"]
 }
-
 LANGS = {
-    "English": {"title": "City Reporting Matrix", "tab1": "Form", "tab2": "History", "cmo": "Lot / Client", "year": "Year", "month": "Month", "sign": "Full Name", "submit": "Submit Report", "comm": "Comment", "mark": "Mark as COMPLETED"},
+    "English": {"title": "City Reporting Matrix", "tab1": "Form", "tab2": "History", "cmo": "Lot / Client", "year": "Year", "month": "Month", "sign": "Full Name", "submit": "Submit", "comm": "Comment", "mark": "Mark as COMPLETED"},
     "Français": {"title": "Matrice de Rapports", "tab1": "Formulaire", "tab2": "Historique", "cmo": "Lot / Client", "year": "Année", "month": "Mois", "sign": "Nom complet", "submit": "Soumettre", "comm": "Commentaire", "mark": "Marquer comme TERMINÉ"}
 }
 
@@ -131,12 +130,11 @@ with tab1:
     is_done = st.checkbox(T["mark"])
     sig = st.text_input(T["sign"])
     if st.button(T["submit"]):
-        if not sig: st.error("Please enter your name.")
+        if not sig: st.error("Name required")
         else:
             row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_done}
             row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
-            df = load_data()
-            save_data(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+            save_data(pd.concat([load_data(), pd.DataFrame([row])], ignore_index=True))
             st.success("Report Saved!")
 
 with tab2:
@@ -144,9 +142,9 @@ with tab2:
     if not df.empty:
         st.dataframe(df, use_container_width=True)
         c1, c2 = st.columns([2, 1])
-        c1.download_button("📥 Export Excel", generate_excel_with_chart(df), "report.xlsx")
-        c1.download_button("📥 Export PDF", generate_professional_pdf(df, task_list), "report.pdf")
-        idx = c2.selectbox("Select row to DELETE if mistake:", df.index)
+        c1.download_button("📥 Excel (Vertical + Chart)", generate_excel_vertical_with_chart(df), "report.xlsx")
+        c1.download_button("📥 PDF (Professional + Circle)", generate_professional_pdf(df, task_list), "report.pdf")
+        idx = c2.selectbox("Select row to DELETE:", df.index)
         if c2.button("DELETE REPORT"):
             save_data(df.drop(idx))
             st.rerun()
