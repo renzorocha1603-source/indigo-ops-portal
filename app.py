@@ -4,16 +4,17 @@ import datetime
 import io
 import os
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
 # --- Setup ---
-st.set_page_config(page_title="Indigo Matrix", layout="wide")
-DATA_FILE = "data/submissions.csv"
-os.makedirs("data", exist_ok=True)
+st.set_page_config(page_title="Indigo Ops Portal", layout="wide", page_icon="🅿️")
+DATA_DIR = "data"
+DATA_FILE = os.path.join(DATA_DIR, "submissions.csv")
+os.makedirs(DATA_DIR, exist_ok=True)
 LOGO_URL = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
-# --- Data Handling ---
+# --- Data Management ---
 def load_data():
     if os.path.exists(DATA_FILE):
         return pd.read_csv(DATA_FILE)
@@ -22,23 +23,50 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# --- Multilingual Dictionary ---
+# --- Multilingual Tasks ---
+TASKS = {
+    "English": [
+        "Tier 1 monthly report completed",
+        "CRITICAL: Scheduled monthly meeting/call completed",
+        "Unplanned monthly contact made by the General Manager",
+        "Industry news shared every month",
+        "IPC/Indigo Group news shared every month",
+        "Monthly SMILE audit completed",
+        "Marketing and special/sports events reporting completed",
+        "Value-add propositions delivered to clients each month",
+        "Other reference benchmarks or points of interest discussed"
+    ],
+    "Français": [
+        "Rapport mensuel de niveau 1 terminé",
+        "CRITICAL: Appel/réunion mensuel programmé terminé",
+        "Contact mensuel non planifié effectué par le directeur général",
+        "Actualités de l'industrie partagées chaque mois",
+        "Actualités IPC/Indigo Group partagées chaque mois",
+        "Audit mensuel SMILE terminé",
+        "Marketing et rapports d'événements spéciaux/sportifs terminés",
+        "Des propositions à valeur ajoutée livrées aux clients chaque mois",
+        "Autres points de référence ou d'intérêt"
+    ]
+}
+
 LANGS = {
     "English": {
         "title": "City Reporting Matrix",
-        "t1": "Form", "t2": "History",
-        "cmo": "CMO ID", "sign": "Signature",
-        "submit": "Submit Report", "del": "Delete Selected",
-        "tasks": [f"Task {i}" for i in range(1, 10)], # Replace with your real tasks
-        "comm_req": "Comment required for NO/NA"
+        "tab1": "Form", "tab2": "History",
+        "cmo": "CMO ID", "sign": "Full Name",
+        "submit": "Submit Report", "del": "Delete Selected Record",
+        "comm": "Justification (Required for NO/NA)",
+        "attest": "I certify the information is accurate.",
+        "success": "Record Saved!"
     },
     "Français": {
         "title": "Matrice de Rapports",
-        "t1": "Formulaire", "t2": "Historique",
-        "cmo": "ID CMO", "sign": "Signature",
-        "submit": "Soumettre", "del": "Supprimer la sélection",
-        "tasks": [f"Tâche {i}" for i in range(1, 10)], 
-        "comm_req": "Commentaire requis pour NO/NA"
+        "tab1": "Formulaire", "tab2": "Historique",
+        "cmo": "Code CMO", "sign": "Nom complet",
+        "submit": "Soumettre", "del": "Supprimer l'enregistrement",
+        "comm": "Justification (Requise pour NO/NA)",
+        "attest": "Je certifie que les informations sont exactes.",
+        "success": "Données enregistrées !"
     }
 }
 
@@ -46,83 +74,75 @@ LANGS = {
 st.sidebar.image(LOGO_URL, width=150)
 lang = st.sidebar.selectbox("Language / Langue", ["English", "Français"])
 T = LANGS[lang]
+task_list = TASKS[lang]
 
 # --- Main App ---
 st.title(T["title"])
-tab1, tab2 = st.tabs([T["t1"], T["t2"]])
+tab1, tab2 = st.tabs([T["tab1"], T["tab2"]])
 
 with tab1:
     cmo = st.text_input(T["cmo"])
     responses = {}
     comments = {}
-    total_score = 0
-    valid_tasks = 0
-
-    for task in T["tasks"]:
-        col1, col2 = st.columns([2, 1])
-        col1.write(task)
-        val = col2.radio(f"r_{task}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
+    
+    yes_count = 0
+    na_count = 0
+    total_valid = 0
+    
+    for i, task in enumerate(task_list):
+        st.markdown(f"**{i+1}. {task}**")
+        val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
         responses[task] = val
         
         if val in ["NO", "N/A"]:
-            comments[task] = st.text_input(f"{T['comm_req']} ({task})")
-        else:
-            comments[task] = ""
-            if val == "YES":
-                total_score += 1
-                valid_tasks += 1
-            elif val == "N/A":
-                pass # N/A doesn't count towards score
-            else: # NO
-                valid_tasks += 1
-
-    pct = (total_score / valid_tasks * 100) if valid_tasks > 0 else 0
+            comments[task] = st.text_input(T["comm"], key=f"c_{i}")
+            if val == "NO": total_valid += 1
+        elif val == "YES":
+            yes_count += 1
+            total_valid += 1
+        else: # N/A
+            na_count += 1
+            
+    pct = (yes_count / total_valid * 100) if total_valid > 0 else 0
     st.metric("Completion %", f"{pct:.1f}%")
     
     signature = st.text_input(T["sign"])
+    attest = st.checkbox(T["attest"])
+    
     if st.button(T["submit"]):
-        if not signature or not cmo:
-            st.error("Missing Info")
+        if not signature or not cmo or not attest:
+            st.error("Missing mandatory fields or attestation.")
         else:
             new_row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "CMO": cmo, "User": signature, "Score": pct}
             new_row.update(responses)
-            new_row.update({f"Comm_{k}": v for k,v in comments.items()})
+            new_row.update({f"Comm_{k}": v for k, v in comments.items()})
             df = load_data()
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             save_data(df)
-            st.success("Saved!")
+            st.success(T["success"])
 
 with tab2:
     df = load_data()
     if not df.empty:
-        # Search Filters
-        c_search, c_date = st.columns(2)
-        s_cmo = c_search.text_input("Filter by CMO")
+        # Filtering
+        s_cmo = st.text_input("Filter by CMO")
         if s_cmo: df = df[df['CMO'].str.contains(s_cmo, case=False)]
         
-        st.dataframe(df)
+        st.dataframe(df, use_container_width=True)
         
-        # Download Buttons
-        col_dl1, col_dl2 = st.columns(2)
+        # Actions
+        col1, col2 = st.columns(2)
         
         # Excel
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False)
-        col_dl1.download_button("Download Excel", buffer.getvalue(), "data.xlsx")
+        col1.download_button("📥 Download Excel", buffer.getvalue(), "report.xlsx")
         
-        # PDF Simple
-        if col_dl2.button("Generate PDF"):
-            pdf_buf = io.BytesIO()
-            doc = SimpleDocTemplate(pdf_buf, pagesize=letter)
-            story = [Paragraph("Report", getSampleStyleSheet()['Title'])]
-            for _, row in df.iterrows():
-                story.append(Paragraph(f"CMO: {row['CMO']} | User: {row['User']}", getSampleStyleSheet()['Normal']))
-            doc.build(story)
-            col_dl2.download_button("Download PDF", pdf_buf.getvalue(), "report.pdf")
-
-        # Delete Logic
-        to_del = st.selectbox("Select ID to Delete", df.index)
+        # Delete
+        target_idx = st.selectbox("Select row to delete", df.index)
         if st.button(T["del"]):
-            df = df.drop(to_del)
+            df = df.drop(target_idx)
             save_data(df)
             st.rerun()
+    else:
+        st.info("No records found.")
