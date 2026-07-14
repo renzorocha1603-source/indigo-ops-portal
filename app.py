@@ -15,7 +15,7 @@ DATA_FILE = os.path.join(DATA_DIR, "submissions.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 LOGO_URL = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
-# --- PDF Generation Function (Fixed Wrapping) ---
+# --- PDF Generation Function (Vertical) ---
 def create_vertical_pdf(df):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -25,14 +25,12 @@ def create_vertical_pdf(df):
     elements.append(Paragraph("Indigo Park - City Reporting Matrix Report", styles['Title']))
     elements.append(Spacer(1, 12))
     
-    # Process each record
     for index, row in df.iterrows():
         elements.append(Paragraph(f"Record #{index + 1}", styles['Heading2']))
         
-        # Prepare vertical data with Paragraph wrapping
-        # Col 0 (Question) is wider (250), Col 1 (Answer) is (150)
         data = []
         for col, val in row.items():
+            # Force word wrap using Paragraph
             key_para = Paragraph(str(col), styles['Normal'])
             val_para = Paragraph(str(val), styles['Normal'])
             data.append([key_para, val_para])
@@ -41,7 +39,7 @@ def create_vertical_pdf(df):
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'), # Align text to top of cell
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
@@ -60,7 +58,7 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# --- Configuration ---
+# --- Config ---
 CMO_LIST = ["CMO001", "CMO002", "CMO020", "CMO037", "CMO101", "CMO108", "CMO111", "CMO145"]
 YEARS = list(range(2024, 2031))
 
@@ -126,10 +124,12 @@ with tab1:
     comments = {}
     yes_count, total_valid = 0, 0
     
+    # IMPORTANT: index=None ensures no radio button is pre-selected
     for i, task in enumerate(task_list):
         st.markdown(f"**{i+1}. {task}**")
         val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
         responses[task] = val
+        
         if val in ["NO", "N/A"]:
             comments[task] = st.text_input(T["comm"], key=f"c_{i}")
             if val == "NO": total_valid += 1
