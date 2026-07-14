@@ -112,30 +112,38 @@ st.title(f"🅿️ {T['title']}")
 tab1, tab2 = st.tabs([T["tab1"], T["tab2"]])
 
 with tab1:
-    c1, c2, c3 = st.columns(3)
-    cmo = c1.selectbox(T["cmo"], LOT_OPTIONS)
-    year = c2.selectbox(T["year"], list(range(2024, 2031)))
-    month = c3.selectbox(T["month"], ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    res, comments, yes_count, total = {}, {}, 0, 0
-    for i, task in enumerate(task_list):
-        st.markdown(f"**{i+1}. {task}**")
-        val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
-        comments[task] = st.text_input(T["comm"], key=f"c_{i}")
-        res[task] = val
-        if val == "YES": yes_count += 1
-        if val in ["YES", "NO"]: total += 1
-    pct = (yes_count / total * 100) if total > 0 else 0
-    st.metric("Completion %", f"{pct:.0f}%")
-    is_done = st.checkbox(T["mark"])
-    sig = st.text_input(T["sign"])
-    if st.button(T["submit"]):
-        if not sig: st.error("Please enter your name.")
-        else:
-            row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_done}
-            row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
-            save_data(pd.concat([load_data(), pd.DataFrame([row])], ignore_index=True))
-            st.success("Report Saved!")
-            st.rerun() # This command refreshes the page to start a new report
+    # --- FORM START ---
+    with st.form("report_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        cmo = c1.selectbox(T["cmo"], LOT_OPTIONS)
+        year = c2.selectbox(T["year"], list(range(2024, 2031)))
+        month = c3.selectbox(T["month"], ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+        
+        res, comments, yes_count, total = {}, {}, 0, 0
+        for i, task in enumerate(task_list):
+            st.markdown(f"**{i+1}. {task}**")
+            # Note: Radio buttons inside forms maintain state until clear_on_submit
+            val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
+            comments[task] = st.text_input(T["comm"], key=f"c_{i}")
+            res[task] = val
+            if val == "YES": yes_count += 1
+            if val in ["YES", "NO"]: total += 1
+            
+        pct = (yes_count / total * 100) if total > 0 else 0
+        st.metric("Completion %", f"{pct:.0f}%")
+        is_done = st.checkbox(T["mark"])
+        sig = st.text_input(T["sign"])
+        
+        submit_btn = st.form_submit_button(T["submit"])
+        
+        if submit_btn:
+            if not sig:
+                st.error("Please enter your name.")
+            else:
+                row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_done}
+                row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
+                save_data(pd.concat([load_data(), pd.DataFrame([row])], ignore_index=True))
+                st.success("Report Submitted Successfully!")
 
 with tab2:
     df = load_data()
