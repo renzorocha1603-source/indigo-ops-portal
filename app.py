@@ -69,7 +69,7 @@ def generate_professional_pdf(df, task_list):
     doc.build(elements)
     return buffer.getvalue()
 
-# --- Excel Vertical + Circle Graphic ---
+# --- Excel Vertical + Chart Logic ---
 def generate_vertical_excel(df, task_list):
     output = io.BytesIO()
     row = df.iloc[-1]
@@ -135,6 +135,7 @@ with tab1:
             row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
             save_data(pd.concat([load_data(), pd.DataFrame([row])], ignore_index=True))
             st.success("Report Saved!")
+            st.rerun() # This command refreshes the page to start a new report
 
 with tab2:
     df = load_data()
