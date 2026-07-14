@@ -18,7 +18,7 @@ except ImportError:
     from reportlab.lib import colors
 
 # ==========================================
-# 1. CONFIGURATION
+# 1. CONFIGURATION ET GESTION DES FICHIERS
 # ==========================================
 st.set_page_config(page_title="Indigo Park City Matrix Portal", layout="wide", page_icon="🅿️")
 
@@ -32,14 +32,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Path Handling
+# Gestion du fichier Excel
 FILENAME = 'Montreal Lot List.xlsx'
-# Check if file exists in the current directory or a data folder
+if "master_excel_file" not in st.session_state:
+    st.session_state.master_excel_file = None
+
+# Vérification présence fichier local
 if os.path.exists(FILENAME):
-    master_excel_file = FILENAME
+    st.session_state.master_excel_file = FILENAME
 else:
-    # Fallback to absolute path check
-    master_excel_file = os.path.abspath(FILENAME)
+    st.warning(f"Le fichier '{FILENAME}' n'est pas dans le dossier. Veuillez l'uploader ci-dessous.")
+    uploaded_file = st.file_uploader("Upload 'Montreal Lot List.xlsx'", type=['xlsx'])
+    if uploaded_file:
+        st.session_state.master_excel_file = uploaded_file
 
 logo_url = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
@@ -153,7 +158,7 @@ LANG_DICT = {
 }
 
 # ==========================================
-# 3. SIDEBAR
+# 3. SIDEBAR & LOGIQUE EXCEL
 # ==========================================
 with st.sidebar:
     st.image(logo_url, width=150)
@@ -162,19 +167,18 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"### {T['sidebar_ref']}")
     
-    # Helper avec débogage de chemin
     def excel_dl_button(sheet_name, label):
-        if os.path.exists(master_excel_file):
+        if st.session_state.master_excel_file:
             try:
-                df = pd.read_excel(master_excel_file, sheet_name=sheet_name)
+                df = pd.read_excel(st.session_state.master_excel_file, sheet_name=sheet_name)
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False)
                 st.download_button(label=label, data=buffer.getvalue(), file_name=f"{sheet_name}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as e:
-                st.error(f"Error loading {sheet_name}: {e}")
+                st.error(f"Erreur: {e}")
         else:
-            st.error(f"File not found. Looking at: {os.path.abspath(master_excel_file)}")
+            st.write("Fichier introuvable.")
 
     excel_dl_button('Gestion des activités', T['ref_btn1'])
     excel_dl_button('Aperçu des normes', T['ref_btn2'])
@@ -183,11 +187,11 @@ with st.sidebar:
 st.title(T["title"])
 st.caption(T["subtitle"])
 
-# Data loading functions
+# Fonctions Data
 def get_customer_name(cmo_id):
-    if os.path.exists(master_excel_file):
+    if st.session_state.master_excel_file:
         try:
-            df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
+            df = pd.read_excel(st.session_state.master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
             result = df.loc[df['CMO'] == cmo_id, 'Customer Name']
             return result.values[0] if not result.empty else "N/A"
@@ -195,9 +199,9 @@ def get_customer_name(cmo_id):
     return "N/A"
 
 def load_cmo_codes():
-    if os.path.exists(master_excel_file):
+    if st.session_state.master_excel_file:
         try:
-            df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
+            df = pd.read_excel(st.session_state.master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
             return sorted(list(set(df['CMO'].dropna().astype(str).tolist())))
         except: pass
