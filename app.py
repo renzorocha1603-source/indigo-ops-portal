@@ -15,7 +15,7 @@ DATA_FILE = os.path.join(DATA_DIR, "submissions.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 LOGO_URL = "https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg"
 
-# --- PDF Generation Function (Vertical Layout) ---
+# --- PDF Generation Function (Fixed Wrapping) ---
 def create_vertical_pdf(df):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -25,22 +25,28 @@ def create_vertical_pdf(df):
     elements.append(Paragraph("Indigo Park - City Reporting Matrix Report", styles['Title']))
     elements.append(Spacer(1, 12))
     
-    # Process each record as a separate vertical table
+    # Process each record
     for index, row in df.iterrows():
         elements.append(Paragraph(f"Record #{index + 1}", styles['Heading2']))
         
-        # Prepare vertical data: [[Field, Value]]
-        data = [[str(col), str(val)] for col, val in row.items()]
+        # Prepare vertical data with Paragraph wrapping
+        # Col 0 (Question) is wider (250), Col 1 (Answer) is (150)
+        data = []
+        for col, val in row.items():
+            key_para = Paragraph(str(col), styles['Normal'])
+            val_para = Paragraph(str(val), styles['Normal'])
+            data.append([key_para, val_para])
         
-        table = Table(data, colWidths=[150, 250])
+        table = Table(data, colWidths=[250, 150])
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.whitesmoke),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'), # Align text to top of cell
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 20)) # Space between records
+        elements.append(Spacer(1, 20)) 
     
     doc.build(elements)
     return buffer.getvalue()
@@ -54,7 +60,7 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# --- Configuration Lists ---
+# --- Configuration ---
 CMO_LIST = ["CMO001", "CMO002", "CMO020", "CMO037", "CMO101", "CMO108", "CMO111", "CMO145"]
 YEARS = list(range(2024, 2031))
 
@@ -162,9 +168,9 @@ with tab2:
         
         col1, col2, col3 = st.columns(3)
         
-        # Excel Vertical (Transposed)
+        # Excel Vertical
         buffer_xls = io.BytesIO()
-        df.T.to_excel(buffer_xls) # .T transposes the dataframe
+        df.T.to_excel(buffer_xls) 
         col1.download_button(T["dl_excel"], buffer_xls.getvalue(), "report.xlsx")
         
         # PDF Vertical
