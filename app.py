@@ -32,17 +32,14 @@ LOT_DATA = [
 ]
 LOT_OPTIONS = [f"{d['cmo']} - {d['name']} ({d['client']})" for d in LOT_DATA]
 
-# --- Professional PDF Generator ---
+# --- PDF Generator ---
 def generate_professional_pdf(df, task_list):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     elements = []
     styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Title'], fontSize=16, textColor=colors.HexColor('#003366'), spaceAfter=12)
     
-    # Custom Styles
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Title'], fontSize=18, textColor=colors.HexColor('#003366'), spaceAfter=12)
-    heading_style = ParagraphStyle('HeadingStyle', parent=styles['Heading2'], fontSize=12, spaceAfter=6, textColor=colors.darkblue)
-
     for _, row in df.iterrows():
         elements.append(Paragraph("INDIGO PARK - CITY REPORTING MATRIX", title_style))
         status = "COMPLETED" if row.get('Completed_Flag', False) else "PENDING"
@@ -50,97 +47,91 @@ def generate_professional_pdf(df, task_list):
         elements.append(Paragraph(f"<b>Location:</b> {row['CMO_Info']}", styles['Normal']))
         elements.append(Spacer(1, 20))
         
-        # Prepare Table Data
         table_data = [["Task", "Status", "Comment"]]
         for task in task_list:
             val = row.get(task, "N/A")
             comm = row.get(f"Comm_{task}", "")
             table_data.append([Paragraph(str(task), styles['Normal']), str(val), Paragraph(str(comm) if pd.notna(comm) else "", styles['Normal'])])
         
-        # Create Table
         table = Table(table_data, colWidths=[250, 60, 200])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9d9d9')),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ]))
         elements.append(table)
-        elements.append(Spacer(1, 30))
-        elements.append(Paragraph("__________________________________________________________________________", styles['Normal']))
-        elements.append(Spacer(1, 20))
-    
+        elements.append(Spacer(1, 40))
     doc.build(elements)
     return buffer.getvalue()
 
-# --- Config ---
+# --- App Config ---
 DATA_DIR = "data"; DATA_FILE = os.path.join(DATA_DIR, "submissions.csv"); os.makedirs(DATA_DIR, exist_ok=True)
 def load_data(): return pd.read_csv(DATA_FILE) if os.path.exists(DATA_FILE) else pd.DataFrame()
 def save_data(df): df.to_csv(DATA_FILE, index=False)
 
 TASKS = {
-    "English": ["Tier 1 monthly report completed", "CRITICAL: Scheduled monthly meeting/call completed", "Unplanned monthly contact made", "Industry news shared", "IPC/Indigo Group news shared", "Monthly SMILE audit completed", "Marketing/Events reporting completed", "Value-add propositions delivered", "Other points of interest"],
-    "Français": ["Rapport mensuel niveau 1 terminé", "CRITICAL: Réunion mensuelle complétée", "Contact mensuel imprévu fait", "News industrie partagées", "News Indigo partagées", "Audit mensuel SMILE complété", "Rapports Marketing/Événements", "Propositions valeur ajoutée", "Autres points d'intérêt"]
+    "English": ["Tier 1 monthly report", "CRITICAL: Monthly meeting/call", "Unplanned monthly contact", "Industry news shared", "IPC/Indigo Group news shared", "Monthly SMILE audit", "Marketing/Events reporting", "Value-add propositions", "Other points of interest"],
+    "Français": ["Rapport mensuel niveau 1", "CRITICAL: Réunion mensuelle", "Contact mensuel imprévu", "News industrie partagées", "News Indigo partagées", "Audit mensuel SMILE", "Rapports Marketing/Événements", "Propositions valeur ajoutée", "Autres points d'intérêt"]
 }
 
-# --- Main App ---
-st.set_page_config(layout="wide")
-st.title("🅿️ Indigo Reporting Portal")
-tab1, tab2 = st.tabs(["📋 Submission Form", "📂 History & Management"])
+LANGS = {
+    "English": {"title": "City Reporting Matrix", "tab1": "Form", "tab2": "History", "cmo": "Lot / Client", "year": "Year", "month": "Month", "sign": "Full Name", "submit": "Submit Report", "comm": "Comment", "mark": "Mark as COMPLETED"},
+    "Français": {"title": "Matrice de Rapports", "tab1": "Formulaire", "tab2": "Historique", "cmo": "Lot / Client", "year": "Année", "month": "Mois", "sign": "Nom complet", "submit": "Soumettre", "comm": "Commentaire", "mark": "Marquer comme TERMINÉ"}
+}
+
+# --- Sidebar & Logic ---
+st.set_page_config(layout="wide", page_title="Indigo Ops")
+st.sidebar.image("https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg", width=150)
+lang = st.sidebar.selectbox("Language / Langue", ["English", "Français"])
+T = LANGS[lang]
+task_list = TASKS[lang]
+
+st.title(f"🅿️ {T['title']}")
+tab1, tab2 = st.tabs([T["tab1"], T["tab2"]])
 
 with tab1:
-    col1, col2, col3 = st.columns(3)
-    cmo = col1.selectbox("Select Lot / Client", LOT_OPTIONS)
-    year = col2.selectbox("Year", list(range(2024, 2031)))
-    month = col3.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    c1, c2, c3 = st.columns(3)
+    cmo = c1.selectbox(T["cmo"], LOT_OPTIONS)
+    year = c2.selectbox(T["year"], list(range(2024, 2031)))
+    month = c3.selectbox(T["month"], ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
     
-    responses, comments, yes_count, total = {}, {}, 0, 0
-    for i, task in enumerate(TASKS["English"]):
+    res, comments, yes_count, total = {}, {}, 0, 0
+    for i, task in enumerate(task_list):
         st.markdown(f"**{i+1}. {task}**")
         val = st.radio(f"r_{i}", ["YES", "NO", "N/A"], horizontal=True, index=None, label_visibility="collapsed")
-        comments[task] = st.text_input("Comment", key=f"c_{i}")
-        responses[task] = val
+        comments[task] = st.text_input(T["comm"], key=f"c_{i}")
+        res[task] = val
         if val == "YES": yes_count += 1
         if val in ["YES", "NO"]: total += 1
             
     pct = (yes_count / total * 100) if total > 0 else 0
     st.metric("Completion %", f"{pct:.0f}%")
+    is_done = st.checkbox(T["mark"])
+    sig = st.text_input(T["sign"])
     
-    is_completed = st.checkbox("Mark report as COMPLETED")
-    sig = st.text_input("Full Name")
-    
-    if st.button("Submit Report"):
+    if st.button(T["submit"]):
         if not sig: st.error("Please enter your name.")
         else:
-            row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_completed}
-            row.update(responses)
-            row.update({f"Comm_{k}": v for k, v in comments.items()})
+            row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_done}
+            row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
             df = load_data()
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-            save_data(df)
-            st.success("Report Saved Successfully!")
+            save_data(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+            st.success("Report Saved!")
 
 with tab2:
     df = load_data()
     if not df.empty:
-        st.subheader("Manage Records")
         st.dataframe(df, use_container_width=True)
-        
-        col_export, col_delete = st.columns([2, 1])
-        
-        with col_export:
+        col_exp, col_del = st.columns([2, 1])
+        with col_exp:
             buff = io.BytesIO()
             df.T.to_excel(buff)
-            st.download_button("📥 Export All to Excel", buff.getvalue(), "report.xlsx")
-            st.download_button("📥 Export Professional PDF", generate_professional_pdf(df, TASKS["English"]), "report.pdf")
-            
-        with col_delete:
-            st.warning("⚠️ Correction Area")
-            target_idx = st.selectbox("Select row to delete if there is a mistake", df.index)
-            if st.button("Delete Selected Report"):
-                df = df.drop(target_idx)
-                save_data(df)
+            st.download_button("📥 Export Excel", buff.getvalue(), "report.xlsx")
+            st.download_button("📥 Export Professional PDF", generate_professional_pdf(df, task_list), "report.pdf")
+        with col_del:
+            st.warning("⚠️ Corrections")
+            idx = st.selectbox("Select row to DELETE if mistake:", df.index)
+            if st.button("DELETE REPORT"):
+                save_data(df.drop(idx))
                 st.rerun()
-    else:
-        st.info("No records found.")
