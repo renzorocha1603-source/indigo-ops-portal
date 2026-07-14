@@ -8,29 +8,28 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.graphics.shapes import Drawing, Wedge, String
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from openpyxl import load_workbook
 from openpyxl.chart import DoughnutChart, Reference
 
-# --- Hardcoded Client List ---
+# --- Full Hardcoded Client List ---
 LOT_DATA = [
     {"cmo": "M002", "name": "Youville", "client": "Les Placements St-Paul Inc"},
-    {"cmo": "M020", "name": "2984 Taschereau", "client": "Northwest Healthcare Properties"},
+    {"cmo": "M020", "name": "2984 Taschereau", "client": "Northwest Healthcare Properties Corporation"},
     {"cmo": "M037", "name": "Faubourg Ste Catherine", "client": "Faubourg Ste Catherine"},
     {"cmo": "M101", "name": "Place Ville Marie", "client": "Ivanhoe Cambridge"},
     {"cmo": "M102", "name": "Place Bonaventure", "client": "Kevric"},
     {"cmo": "M111", "name": "1981 McGill College", "client": "Kevric"},
     {"cmo": "M119", "name": "Place Montréal Trust", "client": "Ivanhoe Cambridge"},
-    {"cmo": "M132", "name": "Complexe Desjardins", "client": "Groupe Immobilier Desjardins"},
+    {"cmo": "M132", "name": "Complexe Desjardins", "client": "Groupe Immobilier Desjardins Inc"},
     {"cmo": "M141", "name": "Quartier International", "client": "Cité Internationale"},
     {"cmo": "M145", "name": "Dominion Square", "client": "Kevric Allied"},
-    {"cmo": "M179", "name": "Gare Centrale CN", "client": "Complexe de la Gare Centrale 2 S.E.C."},
-    {"cmo": "M230", "name": "Le Seaforth", "client": "Groupe Accueil International"},
+    {"cmo": "M179", "name": "Gare Centrale CN – Belmont", "client": "Complexe de la Gare Centrale 2 S.E.C."},
+    {"cmo": "M230", "name": "Le Seaforth", "client": "Groupe Accueil International Ltee"},
     {"cmo": "M242", "name": "Place Bell", "client": "Evenko Montreal"},
     {"cmo": "M275", "name": "2200 McGill", "client": "Allied"},
     {"cmo": "M276", "name": "2000 McGill", "client": "Allied"},
     {"cmo": "M281", "name": "Centre EATON", "client": "Ivanhoe Cambridge"},
     {"cmo": "M296", "name": "Espace Montmorency", "client": "Espace Montmorency"},
-    {"cmo": "M305", "name": "1350-1360 René-Lévesque", "client": "Northwest Healthcare Properties"},
+    {"cmo": "M305", "name": "1350-1360 René-Lévesque Ouest", "client": "Northwest Healthcare Properties"},
     {"cmo": "M504", "name": "VIA Rail Dorval", "client": "VIA Rail"}
 ]
 LOT_OPTIONS = [f"{d['cmo']} - {d['name']} ({d['client']})" for d in LOT_DATA]
@@ -71,25 +70,25 @@ def generate_professional_pdf(df, task_list):
     return buffer.getvalue()
 
 # --- Excel Vertical + Circle Graphic ---
-def generate_excel_vertical_with_chart(df):
+def generate_vertical_excel(df, task_list):
     output = io.BytesIO()
-    # Transpose for vertical view
-    df_t = df.T
+    row = df.iloc[-1]
+    data = []
+    for t in task_list:
+        data.append({"Question": t, "Answer": row.get(t, "N/A"), "Comment": row.get(f"Comm_{t}", "")})
+    df_vertical = pd.DataFrame(data)
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_t.to_excel(writer, sheet_name='Report')
-        wb = writer.book
-        ws = wb['Report']
-        # Add Doughnut Chart (Circle)
+        df_vertical.to_excel(writer, index=False, sheet_name='Report')
+        ws = writer.book['Report']
+        ws['E2'] = "Completion %"
+        ws['E3'] = float(row['Score'])
         chart = DoughnutChart()
-        chart.title = "Completion %"
-        # Reference the Score row (assuming Score is the 6th row in the transposed df)
-        # In a transposed DF, the row index for 'Score' is 6.
-        data = Reference(ws, min_col=2, min_row=6, max_row=6, max_col=df_t.shape[1]+1)
-        chart.add_data(data, from_rows=True)
-        ws.add_chart(chart, "B10")
+        chart.title = "Report Completion"
+        chart.add_data(Reference(ws, min_col=5, min_row=3, max_row=3), from_rows=True)
+        ws.add_chart(chart, "G2")
     return output.getvalue()
 
-# --- Setup ---
+# --- App Config ---
 DATA_FILE = "submissions.csv"
 def load_data(): return pd.read_csv(DATA_FILE) if os.path.exists(DATA_FILE) else pd.DataFrame()
 def save_data(df): df.to_csv(DATA_FILE, index=False)
@@ -99,7 +98,7 @@ TASKS = {
     "Français": ["Rapport mensuel niveau 1", "CRITICAL: Réunion mensuelle", "Contact mensuel imprévu", "News industrie partagées", "News Indigo partagées", "Audit mensuel SMILE", "Rapports Marketing/Événements", "Propositions valeur ajoutée", "Autres points d'intérêt"]
 }
 LANGS = {
-    "English": {"title": "City Reporting Matrix", "tab1": "Form", "tab2": "History", "cmo": "Lot / Client", "year": "Year", "month": "Month", "sign": "Full Name", "submit": "Submit", "comm": "Comment", "mark": "Mark as COMPLETED"},
+    "English": {"title": "City Reporting Matrix", "tab1": "Form", "tab2": "History", "cmo": "Lot / Client", "year": "Year", "month": "Month", "sign": "Full Name", "submit": "Submit Report", "comm": "Comment", "mark": "Mark as COMPLETED"},
     "Français": {"title": "Matrice de Rapports", "tab1": "Formulaire", "tab2": "Historique", "cmo": "Lot / Client", "year": "Année", "month": "Mois", "sign": "Nom complet", "submit": "Soumettre", "comm": "Commentaire", "mark": "Marquer comme TERMINÉ"}
 }
 
@@ -130,7 +129,7 @@ with tab1:
     is_done = st.checkbox(T["mark"])
     sig = st.text_input(T["sign"])
     if st.button(T["submit"]):
-        if not sig: st.error("Name required")
+        if not sig: st.error("Please enter your name.")
         else:
             row = {"Date": datetime.datetime.now().strftime("%Y-%m-%d"), "Year": year, "Month": month, "CMO_Info": cmo, "User": sig, "Score": pct, "Completed_Flag": is_done}
             row.update(res); row.update({f"Comm_{k}": v for k, v in comments.items()})
@@ -142,9 +141,9 @@ with tab2:
     if not df.empty:
         st.dataframe(df, use_container_width=True)
         c1, c2 = st.columns([2, 1])
-        c1.download_button("📥 Excel (Vertical + Chart)", generate_excel_vertical_with_chart(df), "report.xlsx")
-        c1.download_button("📥 PDF (Professional + Circle)", generate_professional_pdf(df, task_list), "report.pdf")
-        idx = c2.selectbox("Select row to DELETE:", df.index)
+        c1.download_button("📥 Excel Vertical + Chart", generate_vertical_excel(df, task_list), "report.xlsx")
+        c1.download_button("📥 PDF Professional + Circle", generate_professional_pdf(df, task_list), "report.pdf")
+        idx = c2.selectbox("Select row to DELETE if mistake:", df.index)
         if c2.button("DELETE REPORT"):
             save_data(df.drop(idx))
             st.rerun()
