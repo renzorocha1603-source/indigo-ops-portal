@@ -4,9 +4,12 @@ import datetime
 import io
 import os
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Drawing
+from reportlab.graphics.shapes import Drawing, Wedge, String, Rect
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from openpyxl import load_workbook
+from openpyxl.chart import BarChart, Reference
 
 # --- Hardcoded Client List ---
 LOT_DATA = [
@@ -32,7 +35,18 @@ LOT_DATA = [
 ]
 LOT_OPTIONS = [f"{d['cmo']} - {d['name']} ({d['client']})" for d in LOT_DATA]
 
-# --- PDF Generator ---
+# --- PDF Graphic Helper ---
+def create_progress_circle(pct):
+    d = Drawing(50, 50)
+    # Background circle
+    d.add(Wedge(25, 25, 20, 0, 360, fillColor=colors.whitesmoke, strokeColor=colors.lightgrey))
+    # Percentage wedge
+    angle = (pct / 100) * 360
+    d.add(Wedge(25, 25, 20, 90, 90 - angle, fillColor=colors.HexColor('#003366')))
+    d.add(String(15, 20, f"{int(pct)}%", fontSize=10, fontName='Helvetica-Bold'))
+    return d
+
+# --- Professional PDF Generator ---
 def generate_professional_pdf(df, task_list):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -43,8 +57,11 @@ def generate_professional_pdf(df, task_list):
     for _, row in df.iterrows():
         elements.append(Paragraph("INDIGO PARK - CITY REPORTING MATRIX", title_style))
         status = "COMPLETED" if row.get('Completed_Flag', False) else "PENDING"
-        elements.append(Paragraph(f"<b>Status:</b> {status} | <b>Date:</b> {row['Date']} | <b>Score:</b> {float(row['Score']):.0f}%", styles['Normal']))
-        elements.append(Paragraph(f"<b>Location:</b> {row['CMO_Info']}", styles['Normal']))
+        # Layout: Header + Circle
+        elements.append(Table([[
+            Paragraph(f"<b>Status:</b> {status}<br/><b>Date:</b> {row['Date']}<br/><b>Location:</b> {row['CMO_Info']}", styles['Normal']),
+            create_progress_circle(float(row['Score']))
+        ]], colWidths=[400, 60]))
         elements.append(Spacer(1, 20))
         
         table_data = [["Task", "Status", "Comment"]]
@@ -53,19 +70,31 @@ def generate_professional_pdf(df, task_list):
             comm = row.get(f"Comm_{task}", "")
             table_data.append([Paragraph(str(task), styles['Normal']), str(val), Paragraph(str(comm) if pd.notna(comm) else "", styles['Normal'])])
         
-        table = Table(table_data, colWidths=[250, 60, 200])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9d9d9')),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
-        ]))
-        elements.append(table)
+        t = Table(table_data, colWidths=[250, 60, 200])
+        t.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9d9d9')), ('GRID', (0, 0), (-1, -1), 0.5, colors.black), ('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+        elements.append(t)
         elements.append(Spacer(1, 40))
     doc.build(elements)
     return buffer.getvalue()
 
-# --- App Config ---
+# --- Excel Graphic Helper ---
+def generate_excel_with_chart(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Data')
+        # Access the worksheet to add a chart
+        wb = writer.book
+        ws = wb['Data']
+        chart = BarChart()
+        chart.type = "col"
+        chart.style = 10
+        chart.title = "Completion Score by Record"
+        data = Reference(ws, min_col=6, min_row=1, max_row=len(df)+1) # Column 6 is usually Score
+        chart.add_data(data, titles_from_data=True)
+        ws.add_chart(chart, "K2")
+    return output.getvalue()
+
+# --- Config & Setup ---
 DATA_DIR = "data"; DATA_FILE = os.path.join(DATA_DIR, "submissions.csv"); os.makedirs(DATA_DIR, exist_ok=True)
 def load_data(): return pd.read_csv(DATA_FILE) if os.path.exists(DATA_FILE) else pd.DataFrame()
 def save_data(df): df.to_csv(DATA_FILE, index=False)
@@ -80,13 +109,13 @@ LANGS = {
     "Français": {"title": "Matrice de Rapports", "tab1": "Formulaire", "tab2": "Historique", "cmo": "Lot / Client", "year": "Année", "month": "Mois", "sign": "Nom complet", "submit": "Soumettre", "comm": "Commentaire", "mark": "Marquer comme TERMINÉ"}
 }
 
-# --- Sidebar & Logic ---
 st.set_page_config(layout="wide", page_title="Indigo Ops")
 st.sidebar.image("https://i.ibb.co/DHgswzDq/indigo-park-canada-logo.jpg", width=150)
 lang = st.sidebar.selectbox("Language / Langue", ["English", "Français"])
 T = LANGS[lang]
 task_list = TASKS[lang]
 
+# --- Main App ---
 st.title(f"🅿️ {T['title']}")
 tab1, tab2 = st.tabs([T["tab1"], T["tab2"]])
 
@@ -125,10 +154,8 @@ with tab2:
         st.dataframe(df, use_container_width=True)
         col_exp, col_del = st.columns([2, 1])
         with col_exp:
-            buff = io.BytesIO()
-            df.T.to_excel(buff)
-            st.download_button("📥 Export Excel", buff.getvalue(), "report.xlsx")
-            st.download_button("📥 Export Professional PDF", generate_professional_pdf(df, task_list), "report.pdf")
+            st.download_button("📥 Export Excel (With Chart)", generate_excel_with_chart(df), "report.xlsx")
+            st.download_button("📥 Export Professional PDF (With Circle)", generate_professional_pdf(df, task_list), "report.pdf")
         with col_del:
             st.warning("⚠️ Corrections")
             idx = st.selectbox("Select row to DELETE if mistake:", df.index)
