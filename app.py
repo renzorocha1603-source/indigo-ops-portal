@@ -172,32 +172,33 @@ st.caption(T["subtitle"])
 st.markdown("---")
 
 # ==========================================
-# 3. BASE DE DONNÉES DE SECOURS (FALLBACK)
+# 3. LOGIQUE DÉPANNAGE ET DONNÉES DYNAMIQUES
 # ==========================================
-FALLBACK_DATA = {
-    'Gestion des activités': pd.DataFrame({
-        "Tâche [Niveau 1 System]": ["Mettre à jour la matrice de rapports municipaux", "Examiner la matrice de rapports municipaux", "Compléter la liste des lotissements", "Effectuer les tâches terrain"],
-        "Responsabilité": ["RR (Responsable Régional)", "DG (Directeur Général)", "DG", "RR et Superviseur"],
-        "Fréquence / Échéance": ["Mensuelle", "Révision le 21 du mois, finale le 1er du mois suivant", "Révision mensuelle", "Mensuelle"]
-    }),
-    'Aperçu des normes': pd.DataFrame({
-        "Excellence (Quoi)": ["1. Personnalisation & Customisation", "2. Réunions Clients / Comptes rendus", "3. Signalisation & Image de marque", "10. Professionnalisme Niveau 1"],
-        "Résultats attendus (Comment)": ["Prendre des notes détaillées sur chaque réunion, carnets distincts", "Le DG doit assister au moins une fois par trimestre aux réunions mensuelles", "Niveaux de livraison les plus élevés, vérifier et remplacer régulièrement", "S'assurer que l'équipe premium est formée à l'étiquette de haut niveau"],
-        "Responsabilité": ["Opérations juniors / Superviseur", "Directeur Général", "Responsable Opérationnel / DG", "Directeur Général / Tous"]
-    }),
-    'Matrice des meilleures pratique': pd.DataFrame({
-        "Indicateurs Opérationnels": ["Rapport opérationnel complet du site", "CRITICAL: Réunion/appel mensuel programmé", "Audit mensuel SMILE", "Propositions à valeur ajoutée (Revenus/Économies)"],
-        "Niveau Minimum Requis": ["Niveau 1, 2 et 3 - Mensuel", "Niveau 1 - Obligatoire (Plafonnement si absent)", "Niveau 1, 2 - Mensuel", "Niveau 1 - Mensuel / Trimestriel"]
-    })
-}
 
-def get_sheet_data(sheet_name, fallback_key):
+# Fonction pour récupérer le nom du client dynamiquement depuis la matrice
+def get_customer_name(cmo_id):
+    if master_excel_file and os.path.exists(master_excel_file):
+        try:
+            df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
+            df.columns = df.columns.str.strip()
+            # On cherche la ligne correspondant au CMO
+            if 'CMO' in df.columns and 'Customer Name' in df.columns:
+                result = df.loc[df['CMO'] == cmo_id, 'Customer Name']
+                if not result.empty:
+                    return result.values[0]
+        except Exception:
+            pass
+    return "N/A"
+
+def get_sheet_data(sheet_name):
+    # Lecture directe du fichier Excel
     if master_excel_file and os.path.exists(master_excel_file):
         try:
             return pd.read_excel(master_excel_file, sheet_name=sheet_name)
-        except:
-            pass
-    return FALLBACK_DATA[fallback_key]
+        except Exception as e:
+            st.error(f"Erreur lecture onglet {sheet_name}: {e}")
+    # Fallback si le fichier n'est pas lisible
+    return pd.DataFrame({"Info": ["Fichier non trouvé ou erreur de lecture"]})
 
 # Dynamic CMO collection
 def load_cmo_codes():
@@ -205,16 +206,16 @@ def load_cmo_codes():
         try:
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
-            raw_codes = df.iloc[0].dropna().astype(str).str.strip().tolist()
-            cmo_list = [x for x in raw_codes if x.upper().startswith(('CMO', 'VMO'))]
+            # Récupérer les codes de la colonne CMO
+            cmo_list = df['CMO'].dropna().astype(str).str.strip().tolist()
             if cmo_list:
                 return sorted(list(set(cmo_list)))
         except:
             pass
+    # Liste par défaut si erreur
     return [f"CMO{str(i).zfill(3)}" for i in [2, 20, 37, 101, 102, 108, 111, 119, 132, 141, 145, 146, 242, 275, 296, 305]]
 
 cmo_options = load_cmo_codes()
-# Mise à jour de la plage : de 2024 jusqu'à 2035
 years_options = list(range(2024, 2036))
 months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] if selected_lang == "Français" else ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
@@ -233,12 +234,16 @@ with t_form:
         st.session_state.success_message = None
 
     # En-tête du formulaire style tableur
-    col_cmo, col_yr, col_mnth = st.columns([2, 1, 1])
-    with col_cmo:
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+    with col1:
         selected_cmo = st.selectbox(T["select_cmo"], cmo_options)
-    with col_yr:
+    with col2:
+        # Affichage dynamique du nom du client
+        cust_name = get_customer_name(selected_cmo)
+        st.text_input("Customer Name (Info):", value=str(cust_name), disabled=True)
+    with col3:
         chosen_year = st.selectbox(T["select_year"], years_options, index=0)
-    with col_mnth:
+    with col4:
         chosen_month = st.selectbox(T["select_month"], months_options, index=6)
 
     st.markdown(f"### {T['form_header']} — {selected_cmo} ({chosen_month} {chosen_year})")
@@ -280,7 +285,6 @@ with t_form:
     # Calculs Métriques
     answers = [v for v in responses.values() if v is not None]
     yes_count = answers.count("YES")
-    no_count = answers.count("NO")
     na_count = answers.count("N/A")
     
     if not incomplete_selections_flag:
@@ -415,15 +419,15 @@ with t_hist:
                 doc.build(story)
                 st.download_button(label=T["dl_pdf"], data=pdf_buffer.getvalue(), file_name="Indigo_Compliance_Report.pdf", mime="application/pdf")
 
-# Onglets Références en Pleine Page (Style Excel original)
+# Onglets Références en Pleine Page (Lecture directe Excel)
 with t_ref1:
     st.markdown("### 📋 Gestion des activités des clients de niveau 1")
-    st.dataframe(get_sheet_data('Gestion des activités', 'Gestion des activités'), use_container_width=True)
+    st.dataframe(get_sheet_data('Gestion des activités'), use_container_width=True)
 
 with t_ref2:
     st.markdown("### 📋 Procédures Standards D'Opération — Aperçu des normes")
-    st.dataframe(get_sheet_data('Aperçu des normes', 'Aperçu des normes'), use_container_width=True)
+    st.dataframe(get_sheet_data('Aperçu des normes'), use_container_width=True)
 
 with t_ref3:
     st.markdown("### 📋 Meilleures pratiques opérationnelles — Niveaux minimaux d'activité locale")
-    st.dataframe(get_sheet_data('Matrice des meilleures pratique', 'Matrice des meilleures pratique'), use_container_width=True)
+    st.dataframe(get_sheet_data('Matrice des meilleures pratique'), use_container_width=True)
