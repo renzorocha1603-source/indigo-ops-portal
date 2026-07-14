@@ -4,8 +4,7 @@ import datetime
 import io
 import os
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Drawing
-from reportlab.graphics.shapes import Drawing, Wedge, String, Rect
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from openpyxl import load_workbook
@@ -37,10 +36,9 @@ LOT_OPTIONS = [f"{d['cmo']} - {d['name']} ({d['client']})" for d in LOT_DATA]
 
 # --- PDF Graphic Helper ---
 def create_progress_circle(pct):
+    from reportlab.graphics.shapes import Drawing, Wedge, String
     d = Drawing(50, 50)
-    # Background circle
     d.add(Wedge(25, 25, 20, 0, 360, fillColor=colors.whitesmoke, strokeColor=colors.lightgrey))
-    # Percentage wedge
     angle = (pct / 100) * 360
     d.add(Wedge(25, 25, 20, 90, 90 - angle, fillColor=colors.HexColor('#003366')))
     d.add(String(15, 20, f"{int(pct)}%", fontSize=10, fontName='Helvetica-Bold'))
@@ -57,7 +55,7 @@ def generate_professional_pdf(df, task_list):
     for _, row in df.iterrows():
         elements.append(Paragraph("INDIGO PARK - CITY REPORTING MATRIX", title_style))
         status = "COMPLETED" if row.get('Completed_Flag', False) else "PENDING"
-        # Layout: Header + Circle
+        # Table for Header + Circle
         elements.append(Table([[
             Paragraph(f"<b>Status:</b> {status}<br/><b>Date:</b> {row['Date']}<br/><b>Location:</b> {row['CMO_Info']}", styles['Normal']),
             create_progress_circle(float(row['Score']))
@@ -82,20 +80,17 @@ def generate_excel_with_chart(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Data')
-        # Access the worksheet to add a chart
         wb = writer.book
         ws = wb['Data']
         chart = BarChart()
         chart.type = "col"
-        chart.style = 10
-        chart.title = "Completion Score by Record"
-        data = Reference(ws, min_col=6, min_row=1, max_row=len(df)+1) # Column 6 is usually Score
-        chart.add_data(data, titles_from_data=True)
+        chart.title = "Completion Score"
+        chart.add_data(Reference(ws, min_col=6, min_row=1, max_row=len(df)+1), titles_from_data=True)
         ws.add_chart(chart, "K2")
     return output.getvalue()
 
-# --- Config & Setup ---
-DATA_DIR = "data"; DATA_FILE = os.path.join(DATA_DIR, "submissions.csv"); os.makedirs(DATA_DIR, exist_ok=True)
+# --- Setup & Main App ---
+DATA_FILE = "submissions.csv"
 def load_data(): return pd.read_csv(DATA_FILE) if os.path.exists(DATA_FILE) else pd.DataFrame()
 def save_data(df): df.to_csv(DATA_FILE, index=False)
 
@@ -115,7 +110,6 @@ lang = st.sidebar.selectbox("Language / Langue", ["English", "Français"])
 T = LANGS[lang]
 task_list = TASKS[lang]
 
-# --- Main App ---
 st.title(f"🅿️ {T['title']}")
 tab1, tab2 = st.tabs([T["tab1"], T["tab2"]])
 
@@ -124,7 +118,6 @@ with tab1:
     cmo = c1.selectbox(T["cmo"], LOT_OPTIONS)
     year = c2.selectbox(T["year"], list(range(2024, 2031)))
     month = c3.selectbox(T["month"], ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-    
     res, comments, yes_count, total = {}, {}, 0, 0
     for i, task in enumerate(task_list):
         st.markdown(f"**{i+1}. {task}**")
@@ -133,12 +126,10 @@ with tab1:
         res[task] = val
         if val == "YES": yes_count += 1
         if val in ["YES", "NO"]: total += 1
-            
     pct = (yes_count / total * 100) if total > 0 else 0
     st.metric("Completion %", f"{pct:.0f}%")
     is_done = st.checkbox(T["mark"])
     sig = st.text_input(T["sign"])
-    
     if st.button(T["submit"]):
         if not sig: st.error("Please enter your name.")
         else:
@@ -152,13 +143,10 @@ with tab2:
     df = load_data()
     if not df.empty:
         st.dataframe(df, use_container_width=True)
-        col_exp, col_del = st.columns([2, 1])
-        with col_exp:
-            st.download_button("📥 Export Excel (With Chart)", generate_excel_with_chart(df), "report.xlsx")
-            st.download_button("📥 Export Professional PDF (With Circle)", generate_professional_pdf(df, task_list), "report.pdf")
-        with col_del:
-            st.warning("⚠️ Corrections")
-            idx = st.selectbox("Select row to DELETE if mistake:", df.index)
-            if st.button("DELETE REPORT"):
-                save_data(df.drop(idx))
-                st.rerun()
+        c1, c2 = st.columns([2, 1])
+        c1.download_button("📥 Export Excel", generate_excel_with_chart(df), "report.xlsx")
+        c1.download_button("📥 Export PDF", generate_professional_pdf(df, task_list), "report.pdf")
+        idx = c2.selectbox("Select row to DELETE if mistake:", df.index)
+        if c2.button("DELETE REPORT"):
+            save_data(df.drop(idx))
+            st.rerun()
