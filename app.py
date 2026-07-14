@@ -18,30 +18,18 @@ except ImportError:
     from reportlab.lib import colors
 
 # ==========================================
-# 1. CONFIGURATION DE LA PAGE & DESIGN EXCEL/INDIGO
+# 1. CONFIGURATION DE LA PAGE
 # ==========================================
 st.set_page_config(page_title="Indigo Park City Matrix Portal", layout="wide", page_icon="🅿️")
 
-# Injection CSS pour donner un aspect "Tableau de bord / Feuille Excel"
 st.markdown("""
     <style>
-    /* Élargir le conteneur principal */
     .block-container { max-width: 95% !important; padding-top: 1.5rem !important; }
-    
-    /* Titres corporatifs */
     h1, h2, h3 { color: #2D144B; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* Boutons style Excel / Indigo */
-    .stButton>button { background-color: #E00073; color: white; border-radius: 4px; font-weight: 600; padding: 0.5rem 1.5rem; border: none; }
+    .stButton>button { background-color: #E00073; color: white; border-radius: 4px; font-weight: 600; padding: 0.5rem 1.5rem; border: none; width: 100%; }
     .stButton>button:hover { background-color: #2D144B; color: white; }
-    
-    /* Zone d'alerte/justification épurée */
     .reason-box { padding: 10px; background-color: #F9F9F9; border-left: 4px solid #E00073; margin-top: 5px; margin-bottom: 10px; border-radius: 4px; }
-    
-    /* Rendre les radios horizontaux plus compacts */
     div.stRadio > div { flex-direction: row; gap: 25px; }
-    
-    /* Style pour simuler les onglets Excel */
     .stTabs [data-baseweb="tab-list"] { gap: 8px; border-bottom: 2px solid #E0E0E0; }
     .stTabs [data-baseweb="tab"] { background-color: #F4F5F7; border: 1px solid #E0E0E0; border-bottom: none; padding: 8px 20px; border-radius: 4px 4px 0px 0px; font-weight: bold; color: #555555; }
     .stTabs [aria-selected="true"] { background-color: #2D144B !important; color: white !important; border-color: #2D144B !important; }
@@ -63,11 +51,13 @@ LANG_DICT = {
     "English": {
         "title": "City Reporting Matrix Portal",
         "subtitle": "Montreal Region Compliance Tracker & Reference Hub (2026)",
+        "sidebar_lang": "Language",
+        "sidebar_ref": "Reference Documents",
+        "ref_btn1": "Download: Activity Management",
+        "ref_btn2": "Download: Standards Overview",
+        "ref_btn3": "Download: Best Practices Matrix",
         "tab_new": "📝 Fill Matrix Form",
         "tab_history": "📜 Database Audit Log",
-        "tab_ref1": "📋 Activity Management",
-        "tab_ref2": "📋 Standards Overview",
-        "tab_ref3": "📋 Best Practices Matrix",
         "select_cmo": "Select Target Lot ID (CMO):",
         "select_year": "Year:",
         "select_month": "Month:",
@@ -111,11 +101,13 @@ LANG_DICT = {
     "Français": {
         "title": "Portail City Reporting Matrix",
         "subtitle": "Suivi de conformité Région de Montréal & Centre de Références (2026)",
+        "sidebar_lang": "Langue",
+        "sidebar_ref": "Documents de Référence",
+        "ref_btn1": "Télécharger : Gestion des activités",
+        "ref_btn2": "Télécharger : Aperçu des normes",
+        "ref_btn3": "Télécharger : Matrice meilleures pratiques",
         "tab_new": "📝 Saisie de la Matrice",
         "tab_history": "📜 Historique des Données",
-        "tab_ref1": "📋 Gestion des Activités (Réf)",
-        "tab_ref2": "📋 Aperçu des Normes (Réf)",
-        "tab_ref3": "📋 Meilleures Pratiques (Réf)",
         "select_cmo": "Code Emplacement (CMO) :",
         "select_year": "Année :",
         "select_month": "Mois :",
@@ -158,61 +150,54 @@ LANG_DICT = {
     }
 }
 
-# Configuration de la barre supérieure pour le choix de la langue
-col_header_logo, col_header_space, col_header_lang = st.columns([1.5, 4, 1.2])
-with col_header_logo:
-    st.image(logo_url, width=160)
-with col_header_lang:
-    selected_lang = st.selectbox("🌐 Language / Langue", ["Français", "English"], label_visibility="collapsed")
+# ==========================================
+# 3. SIDEBAR & LOGIQUE DYNAMIQUE
+# ==========================================
+with st.sidebar:
+    st.image(logo_url, width=150)
+    selected_lang = st.selectbox("🌐 Language / Langue", ["Français", "English"])
+    T = LANG_DICT[selected_lang]
+    st.markdown("---")
+    st.markdown(f"### {T['sidebar_ref']}")
+    
+    # Helper pour bouton de téléchargement Excel
+    def excel_dl_button(sheet_name, label):
+        if os.path.exists(master_excel_file):
+            df = pd.read_excel(master_excel_file, sheet_name=sheet_name)
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            st.download_button(label=label, data=buffer.getvalue(), file_name=f"{sheet_name}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        else:
+            st.error("File not found")
 
-T = LANG_DICT[selected_lang]
+    excel_dl_button('Gestion des activités', T['ref_btn1'])
+    excel_dl_button('Aperçu des normes', T['ref_btn2'])
+    excel_dl_button('Matrice des meilleures pratique', T['ref_btn3'])
 
 st.title(T["title"])
 st.caption(T["subtitle"])
 st.markdown("---")
 
-# ==========================================
-# 3. LOGIQUE DÉPANNAGE ET DONNÉES DYNAMIQUES
-# ==========================================
-
-# Fonction pour récupérer le nom du client dynamiquement depuis la matrice
 def get_customer_name(cmo_id):
     if master_excel_file and os.path.exists(master_excel_file):
         try:
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
-            # On cherche la ligne correspondant au CMO
             if 'CMO' in df.columns and 'Customer Name' in df.columns:
                 result = df.loc[df['CMO'] == cmo_id, 'Customer Name']
-                if not result.empty:
-                    return result.values[0]
-        except Exception:
-            pass
+                if not result.empty: return result.values[0]
+        except Exception: pass
     return "N/A"
 
-def get_sheet_data(sheet_name):
-    # Lecture directe du fichier Excel
-    if master_excel_file and os.path.exists(master_excel_file):
-        try:
-            return pd.read_excel(master_excel_file, sheet_name=sheet_name)
-        except Exception as e:
-            st.error(f"Erreur lecture onglet {sheet_name}: {e}")
-    # Fallback si le fichier n'est pas lisible
-    return pd.DataFrame({"Info": ["Fichier non trouvé ou erreur de lecture"]})
-
-# Dynamic CMO collection
 def load_cmo_codes():
     if master_excel_file and os.path.exists(master_excel_file):
         try:
             df = pd.read_excel(master_excel_file, sheet_name='City Reporting Matrix 2026', skiprows=9)
             df.columns = df.columns.str.strip()
-            # Récupérer les codes de la colonne CMO
             cmo_list = df['CMO'].dropna().astype(str).str.strip().tolist()
-            if cmo_list:
-                return sorted(list(set(cmo_list)))
-        except:
-            pass
-    # Liste par défaut si erreur
+            if cmo_list: return sorted(list(set(cmo_list)))
+        except: pass
     return [f"CMO{str(i).zfill(3)}" for i in [2, 20, 37, 101, 102, 108, 111, 119, 132, 141, 145, 146, 242, 275, 296, 305]]
 
 cmo_options = load_cmo_codes()
@@ -220,214 +205,114 @@ years_options = list(range(2024, 2036))
 months_options = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] if selected_lang == "Français" else ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 # ==========================================
-# 4. SYSTÈME D'ONGLETS HORIZONTAUX (STYLE EXCEL)
+# 4. ONGLET PRINCIPAL
 # ==========================================
-t_form, t_hist, t_ref1, t_ref2, t_ref3 = st.tabs([
-    T["tab_new"], T["tab_history"], T["tab_ref1"], T["tab_ref2"], T["tab_ref3"]
-])
+t_form, t_hist = st.tabs([T["tab_new"], T["tab_history"]])
 
-# Onglet 1 : Formulaire de saisie
 with t_form:
     if st.session_state.success_message:
         st.success(st.session_state.success_message)
         st.balloons()
         st.session_state.success_message = None
 
-    # En-tête du formulaire style tableur
     col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-    with col1:
-        selected_cmo = st.selectbox(T["select_cmo"], cmo_options)
-    with col2:
-        # Affichage dynamique du nom du client
-        cust_name = get_customer_name(selected_cmo)
-        st.text_input("Customer Name (Info):", value=str(cust_name), disabled=True)
-    with col3:
-        chosen_year = st.selectbox(T["select_year"], years_options, index=0)
-    with col4:
-        chosen_month = st.selectbox(T["select_month"], months_options, index=6)
+    with col1: selected_cmo = st.selectbox(T["select_cmo"], cmo_options)
+    with col2: st.text_input("Customer Name (Info):", value=str(get_customer_name(selected_cmo)), disabled=True)
+    with col3: chosen_year = st.selectbox(T["select_year"], years_options, index=0)
+    with col4: chosen_month = st.selectbox(T["select_month"], months_options, index=6)
 
     st.markdown(f"### {T['form_header']} — {selected_cmo} ({chosen_month} {chosen_year})")
-    
-    responses = {}
-    task_comments = {}
-    incomplete_selections_flag = False
-    missing_comments_flag = False
-    
+    responses, task_comments = {}, {}
+    incomplete_selections_flag, missing_comments_flag = False, False
     st.markdown("---")
+    
     for i, task in enumerate(LANG_DICT["English"]["tasks"], start=1):
         col_task_text, col_task_radio = st.columns([5, 2])
-        with col_task_text:
-            st.markdown(f"**{i}.** {T['tasks'][i-1]}")
+        with col_task_text: st.markdown(f"**{i}.** {T['tasks'][i-1]}")
         with col_task_radio:
-            responses[f"task_{i}"] = st.radio(
-                f"Radio_{i}", ["YES", "NO", "N/A"], index=None, key=f"radio_task_{i}", label_visibility="collapsed"
-            )
+            responses[f"task_{i}"] = st.radio(f"Radio_{i}", ["YES", "NO", "N/A"], index=None, key=f"radio_task_{i}", label_visibility="collapsed")
             
-        if responses[f"task_{i}"] is None:
-            incomplete_selections_flag = True
-            task_comments[f"comment_{i}"] = ""
+        if responses[f"task_{i}"] is None: incomplete_selections_flag = True
         elif responses[f"task_{i}"] in ["NO", "N/A"]:
             with col_task_text:
                 st.markdown(f"<div class='reason-box'>", unsafe_allow_html=True)
-                task_comments[f"comment_{i}"] = st.text_input(
-                    f"Justification {responses[f'task_{i}']} *",
-                    key=f"comm_{i}",
-                    placeholder=T["comment_placeholder"],
-                    label_visibility="collapsed"
-                )
+                task_comments[f"comment_{i}"] = st.text_input(f"Justification {responses[f'task_{i}']} *", key=f"comm_{i}", placeholder=T["comment_placeholder"], label_visibility="collapsed")
                 st.markdown("</div>", unsafe_allow_html=True)
-                if not task_comments[f"comment_{i}"].strip():
-                    missing_comments_flag = True
-        else:
-            task_comments[f"comment_{i}"] = ""
+                if not task_comments[f"comment_{i}"].strip(): missing_comments_flag = True
+        else: task_comments[f"comment_{i}"] = ""
         st.markdown("<hr style='margin:0.5rem 0; border:0; border-top:1px solid #F00;' />", unsafe_allow_html=True)
 
-    # Calculs Métriques
     answers = [v for v in responses.values() if v is not None]
     yes_count = answers.count("YES")
     na_count = answers.count("N/A")
-    
     if not incomplete_selections_flag:
         applicable_count = 9 - na_count
         base_score = (yes_count / applicable_count * 100) if applicable_count > 0 else 100.0
-        is_capped = False
-        if responses["task_2"] == "NO" and base_score > 85.0:
-            base_score = 85.0
-            is_capped = True
-        score_display = f"{base_score:.1f}%"
-        status_display = T["m_complete"]
-    else:
-        is_capped = False
-        score_display = "--"
-        status_display = T["m_incomplete"]
+        is_capped = (responses["task_2"] == "NO" and base_score > 85.0)
+        if is_capped: base_score = 85.0
+        score_display, status_display = f"{base_score:.1f}%", T["m_complete"]
+    else: is_capped, score_display, status_display = False, "--", T["m_incomplete"]
 
     st.markdown(f"### {T['metrics_header']}")
-    col_m1, col_m2, col_m3 = st.columns(3)
-    with col_m1:
-        st.metric(label=T["m_status"], value=status_display)
-    with col_m2:
-        if is_capped:
-            st.metric(label=T["m_score"], value=score_display, delta=T["m_capped"], delta_color="inverse")
-        else:
-            st.metric(label=T["m_score"], value=score_display)
-    with col_m3:
-        st.metric(label=T["m_passed"], value=f"{yes_count} / {9 - na_count if not incomplete_selections_flag else 9}")
+    c_m1, c_m2, c_m3 = st.columns(3)
+    c_m1.metric(label=T["m_status"], value=status_display)
+    c_m2.metric(label=T["m_score"], value=score_display, delta=T["m_capped"] if is_capped else None, delta_color="inverse")
+    c_m3.metric(label=T["m_passed"], value=f"{yes_count} / {9 - na_count if not incomplete_selections_flag else 9}")
 
     st.markdown("---")
     st.markdown(f"### {T['sign_header']}")
-    col_sig, col_att = st.columns([2, 2])
-    with col_sig:
-        typed_signature = st.text_input(T["sign_label"])
-    with col_att:
-        st.markdown("<br>", unsafe_allow_html=True)
-        attestation_check = st.checkbox(T["attest_label"])
+    c_sig, c_att = st.columns([2, 2])
+    typed_signature = c_sig.text_input(T["sign_label"])
+    attestation_check = c_att.checkbox(T["attest_label"])
         
-    if incomplete_selections_flag or missing_comments_flag:
-        st.warning(T["comment_warning"])
-        
+    if incomplete_selections_flag or missing_comments_flag: st.warning(T["comment_warning"])
     if st.button(T["submit_btn"]):
         if incomplete_selections_flag or missing_comments_flag or typed_signature.strip() == "" or not attestation_check:
             st.error(T["err_missing"])
         else:
             unique_report_id = f"REF-{int(datetime.datetime.now().timestamp())}"
-            payload = {
-                "Report_ID": [unique_report_id],
-                "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-                "Year": [chosen_year],
-                "Month": [chosen_month],
-                "User": [typed_signature.strip()],
-                "CMO_ID": [selected_cmo],
-                "Final_Score": [score_display],
-                "Capped_Flag": ["YES" if is_capped else "NO"]
-            }
+            payload = {"Report_ID": [unique_report_id], "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")], "Year": [chosen_year], "Month": [chosen_month], "User": [typed_signature.strip()], "CMO_ID": [selected_cmo], "Final_Score": [score_display], "Capped_Flag": ["YES" if is_capped else "NO"]}
             for i in range(1, 10):
                 payload[f"Q{i}_Task_Text"] = [LANG_DICT["English"]["tasks"][i-1]]
                 payload[f"Q{i}_Status"] = [responses[f"task_{i}"]]
                 payload[f"Q{i}_Justification"] = [task_comments[f"comment_{i}"]]
-                
             new_row_df = pd.DataFrame(payload)
-            save_path = "data/submissions.csv"
             os.makedirs("data", exist_ok=True)
-            if not os.path.isfile(save_path):
-                new_row_df.to_csv(save_path, index=False)
-            else:
-                new_row_df.to_csv(save_path, mode='a', header=False, index=False)
-                
+            if not os.path.isfile("data/submissions.csv"): new_row_df.to_csv("data/submissions.csv", index=False)
+            else: new_row_df.to_csv("data/submissions.csv", mode='a', header=False, index=False)
             st.session_state.success_message = f"{T['success_log']} : **{typed_signature}** ! ID: {unique_report_id}"
             st.rerun()
 
-# Onglet 2 : Historique et téléchargement
 with t_hist:
     st.markdown(f"### {T['history_title']}")
-    save_path = "data/submissions.csv"
-    
-    if not os.path.isfile(save_path) or os.path.getsize(save_path) == 0:
-        st.info(T["no_history"])
+    if not os.path.isfile("data/submissions.csv"): st.info(T["no_history"])
     else:
-        history_df = pd.read_csv(save_path)
-        h_col1, h_col2, h_col3, h_col4 = st.columns(4)
-        with h_col1:
-            s_user = st.text_input(T["search_user"], key="filter_user")
-        with h_col2:
-            s_cmo = st.text_input(T["search_cmo"], key="filter_cmo")
-        with h_col3:
-            s_month = st.selectbox(T["search_month"], [T["all"]] + months_options, key="filter_month")
-        with h_col4:
-            s_year = st.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="filter_year")
-            
-        filtered_df = history_df.copy()
-        if s_user.strip():
-            filtered_df = filtered_df[filtered_df['User'].str.contains(s_user, case=False, na=False)]
-        if s_cmo.strip():
-            filtered_df = filtered_df[filtered_df['CMO_ID'].str.contains(s_cmo, case=False, na=False)]
-        if s_month != T["all"]:
-            filtered_df = filtered_df[filtered_df['Month'] == s_month]
-        if s_year != T["all"]:
-            filtered_df = filtered_df[filtered_df['Year'] == int(s_year)]
-            
-        if filtered_df.empty:
-            st.warning("Aucun enregistrement trouvé.")
+        df = pd.read_csv("data/submissions.csv")
+        h1, h2, h3, h4 = st.columns(4)
+        s_user = h1.text_input(T["search_user"], key="filter_user")
+        s_cmo = h2.text_input(T["search_cmo"], key="filter_cmo")
+        s_month = h3.selectbox(T["search_month"], [T["all"]] + months_options, key="filter_month")
+        s_year = h4.selectbox(T["search_year"], [T["all"]] + [str(y) for y in years_options], key="filter_year")
+        f_df = df.copy()
+        if s_user.strip(): f_df = f_df[f_df['User'].str.contains(s_user, case=False, na=False)]
+        if s_cmo.strip(): f_df = f_df[f_df['CMO_ID'].str.contains(s_cmo, case=False, na=False)]
+        if s_month != T["all"]: f_df = f_df[f_df['Month'] == s_month]
+        if s_year != T["all"]: f_df = f_df[f_df['Year'] == int(s_year)]
+        if f_df.empty: st.warning("Aucun enregistrement trouvé.")
         else:
-            st.dataframe(filtered_df[["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]], use_container_width=True)
-            
-            st.markdown("---")
-            dl_col1, dl_col2 = st.columns(2)
-            with dl_col1:
-                vertical_df = filtered_df.set_index("Report_ID").transpose()
-                excel_buffer = io.BytesIO()
-                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    vertical_df.to_excel(writer, sheet_name='Audit Log')
-                st.download_button(label=T["dl_excel"], data=excel_buffer.getvalue(), file_name="Indigo_Vertical_Matrix_Log.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                
-            with dl_col2:
+            st.dataframe(f_df[["Report_ID", "Timestamp", "CMO_ID", "User", "Month", "Year", "Final_Score", "Capped_Flag"]], use_container_width=True)
+            dl1, dl2 = st.columns(2)
+            # Logique Export...
+            with dl1:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer) as writer: f_df.transpose().to_excel(writer, sheet_name='Audit Log')
+                st.download_button(T["dl_excel"], buffer.getvalue(), "Log.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            with dl2:
                 pdf_buffer = io.BytesIO()
-                doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
                 styles = getSampleStyleSheet()
-                style_normal = ParagraphStyle(name='WrapText', parent=styles['Normal'], fontSize=8, leading=10)
-                style_header = ParagraphStyle(name='HeaderStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName='Helvetica-Bold', textColor=colors.whitesmoke)
-                
-                story = [Paragraph("<b>INDIGO PARK CANADA — COMPLIANCE LOG REPORT</b>", styles['Heading2']), Spacer(1, 15)]
-                for idx, row in filtered_df.iterrows():
-                    story.append(Paragraph(f"<b>Matrix Profile: {row['CMO_ID']} — {row['Month']} {row['Year']}</b> (Score: {row['Final_Score']})", styles['Heading3']))
-                    pdf_table_data = [[Paragraph("No.", style_header), Paragraph("Indicator", style_header), Paragraph("Status", style_header), Paragraph("Justification / Comment", style_header)]]
-                    for i in range(1, 10):
-                        pdf_table_data.append([Paragraph(str(i), style_normal), Paragraph(str(row[f"Q{i}_Task_Text"]), style_normal), Paragraph(str(row[f"Q{i}_Status"]), style_normal), Paragraph(str(row[f"Q{i}_Justification"]) if pd.notna(row[f"Q{i}_Justification"]) else "", style_normal)])
-                    t = Table(pdf_table_data, colWidths=[25, 275, 50, 200])
-                    t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2D144B')), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey)]))
-                    story.append(t)
-                    story.append(Spacer(1, 15))
+                story = [Paragraph("<b>INDIGO COMPLIANCE REPORT</b>", styles['Heading2'])]
+                for _, row in f_df.iterrows():
+                    story.append(Paragraph(f"<b>CMO: {row['CMO_ID']}</b>", styles['Heading3']))
                 doc.build(story)
-                st.download_button(label=T["dl_pdf"], data=pdf_buffer.getvalue(), file_name="Indigo_Compliance_Report.pdf", mime="application/pdf")
-
-# Onglets Références en Pleine Page (Lecture directe Excel)
-with t_ref1:
-    st.markdown("### 📋 Gestion des activités des clients de niveau 1")
-    st.dataframe(get_sheet_data('Gestion des activités'), use_container_width=True)
-
-with t_ref2:
-    st.markdown("### 📋 Procédures Standards D'Opération — Aperçu des normes")
-    st.dataframe(get_sheet_data('Aperçu des normes'), use_container_width=True)
-
-with t_ref3:
-    st.markdown("### 📋 Meilleures pratiques opérationnelles — Niveaux minimaux d'activité locale")
-    st.dataframe(get_sheet_data('Matrice des meilleures pratique'), use_container_width=True)
+                st.download_button(T["dl_pdf"], pdf_buffer.getvalue(), "Report.pdf", "application/pdf")
